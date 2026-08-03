@@ -9,7 +9,11 @@ const completionRule = ballotData.completionRule || {
   count: VOTE_BUILDER_DEFAULTS?.builder?.completionRuleCount || 1
 };
 const completionLabel = ballotData.completionLabel || VOTE_BUILDER_DEFAULTS?.builder?.completionLabel || 'Copy results';
-const ballotTheme = ballotData.ballotTheme || VOTE_BUILDER_DEFAULTS?.builder?.ballotTheme || 'default';
+const ballotTheme = normalizeBallotTheme(ballotData.ballotTheme || VOTE_BUILDER_DEFAULTS?.builder?.ballotTheme || 'default');
+const candidateCardStyle = applyCandidateCardStyle(ballotData.candidateCardStyle || VOTE_BUILDER_DEFAULTS?.builder?.candidateCardStyle || {});
+const bannerImage = ballotData.bannerImage || '';
+const footerBrandText = ballotData.footerBrandText || 'made with AI by Juan Solo';
+const footerBrandLogo = ballotData.footerBrandLogo || '';
 const sortMode = ballotData.sortMode || 'builder';
 let activeCandidates = [];
 let rankings = [];
@@ -131,19 +135,17 @@ function renderGrid() {
   cardGrid.innerHTML = '';
   activeCandidates.forEach((candidate) => {
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'card candidate-ballot-card';
     const rankedIndex = rankings.indexOf(candidate.id);
     if (rankedIndex !== -1) {
       card.classList.add('ranked');
       card.dataset.rank = String(rankedIndex + 1);
     }
-    const image = candidate.images[0] || '';
-    card.innerHTML = `
-      <img src="${image}" alt="${escapeHtml(candidate.name)}" />
-      <strong>${escapeHtml(candidate.name)}</strong>
-      <p>${escapeHtml(candidate.description || '')}</p>
-      ${rankedIndex !== -1 ? `<div class="rank-pill">Ranked #${rankedIndex + 1}</div>` : ''}
-    `;
+    renderCandidateBallotCard(card, candidate, {
+      cardStyle: candidateCardStyle,
+      showDescription: true,
+      rankPillText: rankedIndex !== -1 ? `Ranked #${rankedIndex + 1}` : ''
+    });
     card.draggable = true;
     card.addEventListener('click', () => rankCandidate(candidate.id));
     card.addEventListener('dragstart', (event) => {
@@ -221,15 +223,6 @@ function restartRanking() {
   renderGrid();
   updateCompletionState();
   window.__rankedChoiceAutoScrollTriggered = false;
-}
-
-function applyBallotTheme() {
-  document.body.classList.remove('theme-modern', 'theme-contrast');
-  if (ballotTheme === 'modern') {
-    document.body.classList.add('theme-modern');
-  } else if (ballotTheme === 'contrast') {
-    document.body.classList.add('theme-contrast');
-  }
 }
 
 function maybeScrollToRankingSummary() {
@@ -351,5 +344,7 @@ if (excludeSearch) {
   excludeSearch.addEventListener('input', applyActiveCandidatesFromExclusion);
 }
 
-applyBallotTheme();
+applyBallotTheme(ballotTheme);
+applyTopbarBanner(bannerImage);
+applyBrandFooter(footerBrandText, footerBrandLogo);
 applyActiveCandidatesFromExclusion();

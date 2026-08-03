@@ -18,6 +18,11 @@ const completionRule = ballotData.completionRule || {
   count: VOTE_BUILDER_DEFAULTS?.builder?.completionRuleCount || 1
 };
 const completionLabel = ballotData.completionLabel || VOTE_BUILDER_DEFAULTS?.builder?.completionLabel || 'Copy results';
+const ballotTheme = normalizeBallotTheme(ballotData.ballotTheme || VOTE_BUILDER_DEFAULTS?.builder?.ballotTheme || 'default');
+const candidateCardStyle = applyCandidateCardStyle(ballotData.candidateCardStyle || VOTE_BUILDER_DEFAULTS?.builder?.candidateCardStyle || {});
+const bannerImage = ballotData.bannerImage || '';
+const footerBrandText = ballotData.footerBrandText || 'made with AI by Juan Solo';
+const footerBrandLogo = ballotData.footerBrandLogo || '';
 const tiers = normalizeTiers(ballotData.tiers, ballotData.tierLabels, ballotData.tierColors);
 const assignment = {};
 tiers.forEach((tier) => {
@@ -292,15 +297,11 @@ function renderTiers() {
       .filter(Boolean)
       .forEach((candidate) => {
         const card = document.createElement('div');
-        card.className = 'card tier-card tier-assigned-card';
+        card.className = 'card tier-card candidate-ballot-card tier-assigned-card';
         card.draggable = true;
         card.dataset.id = candidate.id;
         card.dataset.tierId = tier.id;
-        const image = candidate.images[0] || '';
-        card.innerHTML = `
-          <img src="${image}" alt="${escapeHtml(candidate.name)}" />
-          <strong>${escapeHtml(candidate.name)}</strong>
-        `;
+        renderCandidateBallotCard(card, candidate, { cardStyle: candidateCardStyle, showDescription: true });
         card.addEventListener('dragstart', (event) => {
           event.dataTransfer.effectAllowed = 'move';
           event.dataTransfer.setData('text/plain', candidate.id);
@@ -365,14 +366,10 @@ function renderGrid() {
     }
 
     const card = document.createElement('div');
-    card.className = 'card tier-card';
+    card.className = 'card tier-card candidate-ballot-card';
     card.draggable = true;
     card.dataset.id = candidate.id;
-    const image = candidate.images[0] || '';
-    card.innerHTML = `
-      <img src="${image}" alt="${escapeHtml(candidate.name)}" />
-      <strong>${escapeHtml(candidate.name)}</strong>
-    `;
+    renderCandidateBallotCard(card, candidate, { cardStyle: candidateCardStyle, showDescription: true });
 
     card.addEventListener('dragstart', (event) => {
       event.dataTransfer.effectAllowed = 'move';
@@ -517,4 +514,7 @@ if (excludeSearch) {
   excludeSearch.addEventListener('input', applyActiveCandidatesFromExclusion);
 }
 
+applyBallotTheme(ballotTheme);
+applyTopbarBanner(bannerImage);
+applyBrandFooter(footerBrandText, footerBrandLogo);
 applyActiveCandidatesFromExclusion();

@@ -4,6 +4,11 @@ const allowExclusion = ballotData.allowExclusion === true;
 const promptForName = ballotData.promptForName !== false;
 const includeVoterName = ballotData.includeVoterName !== false;
 const completionLabel = ballotData.completionLabel || VOTE_BUILDER_DEFAULTS?.builder?.completionLabel || 'Copy results';
+const ballotTheme = normalizeBallotTheme(ballotData.ballotTheme || VOTE_BUILDER_DEFAULTS?.builder?.ballotTheme || 'default');
+const candidateCardStyle = applyCandidateCardStyle(ballotData.candidateCardStyle || VOTE_BUILDER_DEFAULTS?.builder?.candidateCardStyle || {});
+const bannerImage = ballotData.bannerImage || '';
+const footerBrandText = ballotData.footerBrandText || 'made with AI by Juan Solo';
+const footerBrandLogo = ballotData.footerBrandLogo || '';
 let activeCandidates = [...candidates];
 let rankings = [];
 let finalRankingIds = [];
@@ -199,16 +204,17 @@ function renderMatchup() {
     rankingZone.hidden = true;
   }
 
-  matchup.innerHTML = `
-    <div class="card tier-card pairwise-option" data-choice="${pair[0].id}" role="button" tabindex="0" aria-label="Vote for ${escapeHtml(pair[0].name)}">
-      <img src="${pair[0].images[0] || ''}" alt="${escapeHtml(pair[0].name)}" />
-      <strong>${escapeHtml(pair[0].name)}</strong>
-    </div>
-    <div class="card tier-card pairwise-option" data-choice="${pair[1].id}" role="button" tabindex="0" aria-label="Vote for ${escapeHtml(pair[1].name)}">
-      <img src="${pair[1].images[0] || ''}" alt="${escapeHtml(pair[1].name)}" />
-      <strong>${escapeHtml(pair[1].name)}</strong>
-    </div>
-  `;
+  matchup.textContent = '';
+  pair.forEach((candidate) => {
+    const option = document.createElement('div');
+    option.className = 'card tier-card candidate-ballot-card pairwise-option';
+    option.dataset.choice = candidate.id;
+    option.setAttribute('role', 'button');
+    option.tabIndex = 0;
+    option.setAttribute('aria-label', `Vote for ${candidate.name}`);
+    renderCandidateBallotCard(option, candidate, { cardStyle: candidateCardStyle, showDescription: true });
+    matchup.appendChild(option);
+  });
 
   matchup.querySelectorAll('.pairwise-option').forEach((option) => {
     option.addEventListener('click', () => selectWinner(option.dataset.choice));
@@ -299,4 +305,7 @@ if (excludeSearch) {
   excludeSearch.addEventListener('input', applyActiveCandidatesFromExclusion);
 }
 
+applyBallotTheme(ballotTheme);
+applyTopbarBanner(bannerImage);
+applyBrandFooter(footerBrandText, footerBrandLogo);
 applyActiveCandidatesFromExclusion();

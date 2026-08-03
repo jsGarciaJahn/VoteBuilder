@@ -1,0 +1,30 @@
+body {
+  --builder-bg: radial-gradient(circle at 40% -20%, #facc15 0%, #fb923c 45%, #dc2626 100%);
+  --builder-text: #431407;
+  --builder-muted-text: #7c2d12;
+  --builder-surface: #fff7e6;
+  --builder-surface-muted: #ffedd5;
+  --builder-border: #fdba74;
+  --builder-border-soft: #fb923c;
+  --builder-accent: #dc2626;
+  --builder-accent-soft: #fee2e2;
+
+  --surface-bg: #fff7e6;
+  --surface-muted: #ffedd5;
+  --surface-strong: #fde68a;
+  --text-color: #431407;
+  --text-muted: #7c2d12;
+  --border-color: #fdba74;
+  --border-strong: #f97316;
+  --focus-color: #dc2626;
+  --accent-soft: #fee2e2;
+  --accent-chip-bg: #fed7aa;
+  --accent-chip-text: #7c2d12;
+  --topbar-bg: rgba(255, 237, 213, 0.94);
+  --drop-bg: #fffbeb;
+  --drop-active-bg: #fee2e2;
+  --drop-border: #f97316;
+  --drop-active-border: #dc2626;
+
+  background: radial-gradient(circle at 40% -20%, #facc15 0%, #fb923c 45%, #dc2626 100%);
+}

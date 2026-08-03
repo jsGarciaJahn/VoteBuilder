@@ -4,6 +4,12 @@ const FALLBACK_BUILDER_DEFAULTS = {
   completionRuleCount: 1,
   completionLabel: 'Copy results',
   ballotTheme: 'default',
+  candidateCardStyle: {
+    variant: 'default',
+    autoCycleMs: 4500,
+    swipeMs: 420,
+    imageHeightPx: 150
+  },
   tiers: [
     { label: 'S', color: '#fbbf24' },
     { label: 'A', color: '#f59e0b' },
@@ -12,6 +18,39 @@ const FALLBACK_BUILDER_DEFAULTS = {
     { label: 'D', color: '#f472b6' }
   ]
 };
+
+function normalizeBallotTheme(rawTheme) {
+  const normalized = String(rawTheme || '').trim().toLowerCase();
+  if (normalized === 'dark') return 'dark';
+  if (normalized === 'solo') return 'solo';
+  if (normalized === 'contrast') return 'dark';
+  if (normalized === 'modern') return 'default';
+  return 'default';
+}
+
+function clampNumber(rawValue, fallbackValue, min, max) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) return fallbackValue;
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeCandidateCardStyle(rawStyle, builderDefaults) {
+  const fallbackStyle = {
+    ...(FALLBACK_BUILDER_DEFAULTS.candidateCardStyle || {}),
+    ...(builderDefaults?.candidateCardStyle || {})
+  };
+
+  const variantRaw = String(rawStyle?.variant || fallbackStyle.variant || 'default').trim().toLowerCase();
+  const allowedVariants = new Set(['default', 'compact', 'poster', 'minimal']);
+  const variant = allowedVariants.has(variantRaw) ? variantRaw : 'default';
+
+  return {
+    variant,
+    autoCycleMs: Math.round(clampNumber(rawStyle?.autoCycleMs, fallbackStyle.autoCycleMs || 4500, 1800, 15000)),
+    swipeMs: Math.round(clampNumber(rawStyle?.swipeMs, fallbackStyle.swipeMs || 420, 180, 900)),
+    imageHeightPx: Math.round(clampNumber(rawStyle?.imageHeightPx, fallbackStyle.imageHeightPx || 150, 110, 260))
+  };
+}
 
 function shuffleCandidates(candidateList) {
   const shuffled = [...candidateList];
@@ -94,6 +133,11 @@ export function buildBallotObject(contestTitle, mode, sortMode, allowExclusion, 
     count: builderDefaults.completionRuleCount || FALLBACK_BUILDER_DEFAULTS.completionRuleCount
   };
   const pairwiseAlgorithm = ballotOptions.pairwiseAlgorithm || builderDefaults.pairwiseAlgorithm || FALLBACK_BUILDER_DEFAULTS.pairwiseAlgorithm;
+  const ballotTheme = normalizeBallotTheme(ballotOptions.ballotTheme || builderDefaults.ballotTheme || FALLBACK_BUILDER_DEFAULTS.ballotTheme);
+  const candidateCardStyle = normalizeCandidateCardStyle(ballotOptions.candidateCardStyle || {}, builderDefaults);
+  const bannerImage = String(ballotOptions.bannerImage || '').trim();
+  const footerBrandText = String(ballotOptions.footerBrandText || 'made with AI by Juan Solo').trim() || 'made with AI by Juan Solo';
+  const footerBrandLogo = String(ballotOptions.footerBrandLogo || '').trim();
   const validCandidates = candidates
     .filter((candidate) => candidate.images.length > 0 || (candidate.name || '').trim())
     .map((candidate) => ({ ...candidate }));
@@ -117,7 +161,11 @@ export function buildBallotObject(contestTitle, mode, sortMode, allowExclusion, 
       completionRule: ballotOptions.completionRule || defaultCompletionRule,
       pairwiseAlgorithm,
       completionLabel: ballotOptions.completionLabel || builderDefaults.completionLabel || FALLBACK_BUILDER_DEFAULTS.completionLabel,
-      ballotTheme: ballotOptions.ballotTheme || builderDefaults.ballotTheme || FALLBACK_BUILDER_DEFAULTS.ballotTheme,
+      ballotTheme,
+      candidateCardStyle,
+      bannerImage,
+      footerBrandText,
+      footerBrandLogo,
       candidateOrder: randomizedOrder,
       candidates: randomizedCandidates.map((candidate) => ({
         id: candidate.id,
@@ -141,7 +189,11 @@ export function buildBallotObject(contestTitle, mode, sortMode, allowExclusion, 
     completionRule: ballotOptions.completionRule || defaultCompletionRule,
     pairwiseAlgorithm,
     completionLabel: ballotOptions.completionLabel || builderDefaults.completionLabel || FALLBACK_BUILDER_DEFAULTS.completionLabel,
-    ballotTheme: ballotOptions.ballotTheme || builderDefaults.ballotTheme || FALLBACK_BUILDER_DEFAULTS.ballotTheme,
+    ballotTheme,
+    candidateCardStyle,
+    bannerImage,
+    footerBrandText,
+    footerBrandLogo,
     candidateOrder: sortedCandidates.map((candidate) => candidate.id),
     candidates: sortedCandidates.map((candidate) => ({
       id: candidate.id,

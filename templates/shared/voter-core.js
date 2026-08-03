@@ -59,6 +59,95 @@ function wireBallotActionButtons({ onUndo, onRestart, onSubmit }) {
   };
 }
 
+function normalizeBallotTheme(rawTheme) {
+  const normalized = String(rawTheme || '').trim().toLowerCase();
+  if (normalized === 'dark') return 'dark';
+  if (normalized === 'solo') return 'solo';
+  if (normalized === 'contrast') return 'dark';
+  if (normalized === 'modern') return 'default';
+  return 'default';
+}
+
+function applyBallotTheme(rawTheme) {
+  const theme = normalizeBallotTheme(rawTheme);
+  document.body.classList.remove('theme-dark', 'theme-solo', 'theme-modern', 'theme-contrast');
+  if (theme === 'dark') {
+    document.body.classList.add('theme-dark');
+  } else if (theme === 'solo') {
+    document.body.classList.add('theme-solo');
+  }
+  return theme;
+}
+
+function normalizeCandidateCardStyle(rawStyle) {
+  const variantRaw = String(rawStyle?.variant || 'default').trim().toLowerCase();
+  const allowedVariants = new Set(['default', 'compact', 'poster', 'minimal']);
+  const variant = allowedVariants.has(variantRaw) ? variantRaw : 'default';
+
+  const toNumber = (value, fallback) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+  return {
+    variant,
+    autoCycleMs: Math.round(clamp(toNumber(rawStyle?.autoCycleMs, 4500), 1800, 15000)),
+    swipeMs: Math.round(clamp(toNumber(rawStyle?.swipeMs, 420), 180, 900)),
+    imageHeightPx: Math.round(clamp(toNumber(rawStyle?.imageHeightPx, 150), 110, 260))
+  };
+}
+
+function applyCandidateCardStyle(rawStyle) {
+  const style = normalizeCandidateCardStyle(rawStyle);
+  document.body.classList.remove('candidate-card-variant-default', 'candidate-card-variant-compact', 'candidate-card-variant-poster', 'candidate-card-variant-minimal');
+  document.body.classList.add(`candidate-card-variant-${style.variant}`);
+  document.body.style.setProperty('--candidate-card-image-height', `${style.imageHeightPx}px`);
+  document.body.style.setProperty('--candidate-card-swipe-ms', `${style.swipeMs}ms`);
+  return style;
+}
+
+function applyTopbarBanner(rawBannerImage) {
+  const topbar = document.querySelector('.ballot-topbar');
+  if (!topbar) return;
+
+  const bannerImage = String(rawBannerImage || '').trim();
+  if (!bannerImage.startsWith('data:image/')) {
+    topbar.classList.remove('has-banner');
+    topbar.style.removeProperty('background-image');
+    topbar.style.removeProperty('background-size');
+    topbar.style.removeProperty('background-position');
+    topbar.style.removeProperty('background-repeat');
+    return;
+  }
+
+  topbar.classList.add('has-banner');
+  topbar.style.backgroundImage = `linear-gradient(90deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.28)), url(${bannerImage})`;
+  topbar.style.backgroundSize = 'cover';
+  topbar.style.backgroundPosition = 'center';
+  topbar.style.backgroundRepeat = 'no-repeat';
+}
+
+function applyBrandFooter(rawText, rawLogoData) {
+  const footerText = document.getElementById('ballotFooterText');
+  const footerLogo = document.getElementById('ballotFooterLogo');
+  const text = String(rawText || '').trim() || 'made with AI by Juan Solo';
+  const logoData = String(rawLogoData || '').trim();
+
+  if (footerText) {
+    footerText.textContent = text;
+  }
+
+  if (!footerLogo) return;
+  if (logoData.startsWith('data:image/')) {
+    footerLogo.src = logoData;
+    footerLogo.hidden = false;
+  } else {
+    footerLogo.removeAttribute('src');
+    footerLogo.hidden = true;
+  }
+}
+
 function createExclusionCombobox({ field, input, options }) {
   let candidates = [];
 
@@ -217,4 +306,151 @@ function createRankingResultView({
     render,
     clearDragState
   };
+}
+
+function normalizeCandidateImageSource(imageValue) {
+  if (typeof imageValue === 'string') {
+    return imageValue.trim();
+  }
+  if (imageValue && typeof imageValue === 'object' && typeof imageValue.b64 === 'string') {
+    return imageValue.b64.trim();
+  }
+  return '';
+}
+
+function getCandidateImageSources(candidate) {
+  if (!candidate || !Array.isArray(candidate.images)) return [];
+  return candidate.images
+    .map((image) => normalizeCandidateImageSource(image))
+    .filter(Boolean);
+}
+
+function renderCandidateBallotCard(cardElement, candidate, options = {}) {
+  if (!cardElement || !candidate) return;
+
+  const cardStyle = normalizeCandidateCardStyle(options.cardStyle || {});
+  const showDescription = options.showDescription === true;
+  const rankPillText = typeof options.rankPillText === 'string' ? options.rankPillText.trim() : '';
+  const autoCycleMs = Number.isFinite(options.autoCycleMs)
+    ? Math.max(1800, Number(options.autoCycleMs))
+    : cardStyle.autoCycleMs;
+  const imageSources = getCandidateImageSources(candidate);
+  const fallbackSource = imageSources[0] || '';
+
+  cardElement.classList.add('candidate-ballot-card');
+  cardElement.textContent = '';
+
+  const media = document.createElement('div');
+  media.className = 'candidate-media';
+
+  const mediaViewport = document.createElement('div');
+  mediaViewport.className = 'candidate-media-viewport';
+  media.appendChild(mediaViewport);
+
+  const mediaTrack = document.createElement('div');
+  mediaTrack.className = 'candidate-media-track';
+  mediaViewport.appendChild(mediaTrack);
+
+  const sourcesToRender = imageSources.length > 0 ? imageSources : [fallbackSource];
+  sourcesToRender.forEach((source) => {
+    const frame = document.createElement('div');
+    frame.className = 'candidate-media-frame';
+    const image = document.createElement('img');
+    image.alt = String(candidate.name || 'Candidate');
+    image.src = source;
+    image.draggable = false;
+    frame.appendChild(image);
+    mediaTrack.appendChild(frame);
+  });
+
+  if (imageSources.length > 1) {
+    const controls = document.createElement('div');
+    controls.className = 'candidate-media-controls';
+
+    const prevButton = document.createElement('button');
+    prevButton.type = 'button';
+    prevButton.className = 'candidate-media-btn';
+    prevButton.setAttribute('aria-label', `Show previous image for ${candidate.name}`);
+    prevButton.textContent = '<';
+
+    const nextButton = document.createElement('button');
+    nextButton.type = 'button';
+    nextButton.className = 'candidate-media-btn';
+    nextButton.setAttribute('aria-label', `Show next image for ${candidate.name}`);
+    nextButton.textContent = '>';
+
+    controls.appendChild(prevButton);
+    controls.appendChild(nextButton);
+    media.appendChild(controls);
+
+    let currentIndex = 0;
+    let cycleInterval = null;
+    const showImageAt = (nextIndex) => {
+      const wrappedIndex = ((nextIndex % imageSources.length) + imageSources.length) % imageSources.length;
+      currentIndex = wrappedIndex;
+      mediaTrack.style.transform = `translateX(-${currentIndex * 100}%)`;
+    };
+
+    const restartAutoCycle = () => {
+      if (cycleInterval !== null) {
+        window.clearInterval(cycleInterval);
+      }
+      cycleInterval = window.setInterval(() => {
+        if (!cardElement.isConnected) {
+          window.clearInterval(cycleInterval);
+          cycleInterval = null;
+          return;
+        }
+        showImageAt(currentIndex + 1);
+      }, autoCycleMs);
+    };
+
+    const captureControlEvent = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    prevButton.addEventListener('mousedown', captureControlEvent);
+    nextButton.addEventListener('mousedown', captureControlEvent);
+
+    prevButton.addEventListener('click', (event) => {
+      captureControlEvent(event);
+      showImageAt(currentIndex - 1);
+      restartAutoCycle();
+    });
+
+    nextButton.addEventListener('click', (event) => {
+      captureControlEvent(event);
+      showImageAt(currentIndex + 1);
+      restartAutoCycle();
+    });
+
+    showImageAt(0);
+    restartAutoCycle();
+  }
+
+  const content = document.createElement('div');
+  content.className = 'candidate-content';
+
+  const name = document.createElement('strong');
+  name.className = 'candidate-name';
+  name.textContent = String(candidate.name || 'Candidate');
+  content.appendChild(name);
+
+  if (showDescription) {
+    const description = document.createElement('p');
+    description.className = 'candidate-description';
+    description.textContent = String(candidate.description || '');
+    content.appendChild(description);
+  }
+
+  if (rankPillText) {
+    const rankPill = document.createElement('div');
+    rankPill.className = 'rank-pill';
+    rankPill.textContent = rankPillText;
+    content.appendChild(rankPill);
+  }
+
+  cardElement.appendChild(media);
+  cardElement.appendChild(content);
 }

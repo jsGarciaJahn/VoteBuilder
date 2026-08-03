@@ -1,0 +1,30 @@
+body {
+  --builder-bg: radial-gradient(circle at 20% -10%, #1d4ed8 0%, #0b1220 44%, #020617 100%);
+  --builder-text: #e2e8f0;
+  --builder-muted-text: #cbd5e1;
+  --builder-surface: #111827;
+  --builder-surface-muted: #1f2937;
+  --builder-border: #334155;
+  --builder-border-soft: #475569;
+  --builder-accent: #38bdf8;
+  --builder-accent-soft: #172554;
+
+  --surface-bg: #111827;
+  --surface-muted: #1f2937;
+  --surface-strong: #0b1220;
+  --text-color: #f8fafc;
+  --text-muted: #cbd5e1;
+  --border-color: #334155;
+  --border-strong: #64748b;
+  --focus-color: #38bdf8;
+  --accent-soft: #172554;
+  --accent-chip-bg: #1e293b;
+  --accent-chip-text: #cbd5e1;
+  --topbar-bg: rgba(17, 24, 39, 0.96);
+  --drop-bg: #1f2937;
+  --drop-active-bg: #172554;
+  --drop-border: #334155;
+  --drop-active-border: #38bdf8;
+
+  background: radial-gradient(circle at 20% -10%, #1d4ed8 0%, #0b1220 46%, #020617 100%);
+}

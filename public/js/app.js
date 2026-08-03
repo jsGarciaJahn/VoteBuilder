@@ -17,6 +17,12 @@ async function loadDefaults() {
       completionRuleCount: 1,
       completionLabel: 'Copy results',
       ballotTheme: 'default',
+      candidateCardStyle: {
+        variant: 'default',
+        autoCycleMs: 4500,
+        swipeMs: 420,
+        imageHeightPx: 150
+      },
       tiers: [
         { label: 'S', color: '#fbbf24' },
         { label: 'A', color: '#f59e0b' },
@@ -50,6 +56,69 @@ async function loadDefaults() {
 const defaults = await loadDefaults();
 const builderDefaults = defaults.builder || {};
 const FALLBACK_TIER_COLORS = ['#fbbf24', '#f59e0b', '#f97316', '#fb7185', '#f472b6', '#a78bfa', '#60a5fa', '#34d399', '#4ade80', '#a3e635'];
+const DEFAULT_THEME_DEFINITION = { id: 'default', name: 'Default', cssText: '' };
+const LEGACY_THEME_ALIASES = {
+  modern: 'default',
+  contrast: 'dark'
+};
+const BRAND_FOOTER_TEXT = 'made with AI by Juan Solo';
+const BRAND_LOGO_CANDIDATE_PATHS = [
+  './Logo Projekt Juan Solo Plays-02.png',
+  '../Logo Projekt Juan Solo Plays-02.png'
+];
+const CANDIDATE_CARD_STYLE_DEFAULTS = {
+  variant: 'default',
+  autoCycleMs: 4500,
+  swipeMs: 420,
+  imageHeightPx: 150
+};
+const CANDIDATE_CARD_VARIANTS = new Set(['default', 'compact', 'poster', 'minimal']);
+
+function normalizeNumberInRange(rawValue, fallback, min, max) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeCandidateCardStyle(rawStyle = {}) {
+  const variantKey = normalizeKey(rawStyle?.variant || CANDIDATE_CARD_STYLE_DEFAULTS.variant);
+  const variant = CANDIDATE_CARD_VARIANTS.has(variantKey) ? variantKey : CANDIDATE_CARD_STYLE_DEFAULTS.variant;
+  const autoCycleMs = Math.round(normalizeNumberInRange(rawStyle?.autoCycleMs, CANDIDATE_CARD_STYLE_DEFAULTS.autoCycleMs, 1800, 15000));
+  const swipeMs = Math.round(normalizeNumberInRange(rawStyle?.swipeMs, CANDIDATE_CARD_STYLE_DEFAULTS.swipeMs, 180, 900));
+  const imageHeightPx = Math.round(normalizeNumberInRange(rawStyle?.imageHeightPx, CANDIDATE_CARD_STYLE_DEFAULTS.imageHeightPx, 110, 260));
+
+  return {
+    variant,
+    autoCycleMs,
+    swipeMs,
+    imageHeightPx
+  };
+}
+
+function readCandidateCardStyleFromControls() {
+  return normalizeCandidateCardStyle({
+    variant: refs.candidateCardVariant?.value,
+    autoCycleMs: Number(refs.candidateCardCycleSeconds?.value || 4.5) * 1000,
+    swipeMs: refs.candidateCardSwipeMs?.value,
+    imageHeightPx: refs.candidateCardImageHeight?.value
+  });
+}
+
+function writeCandidateCardStyleToControls(cardStyle) {
+  const normalized = normalizeCandidateCardStyle(cardStyle);
+  if (refs.candidateCardVariant) {
+    refs.candidateCardVariant.value = pickSelectValue(refs.candidateCardVariant, normalized.variant, CANDIDATE_CARD_STYLE_DEFAULTS.variant);
+  }
+  if (refs.candidateCardCycleSeconds) {
+    refs.candidateCardCycleSeconds.value = (normalized.autoCycleMs / 1000).toFixed(1);
+  }
+  if (refs.candidateCardSwipeMs) {
+    refs.candidateCardSwipeMs.value = String(normalized.swipeMs);
+  }
+  if (refs.candidateCardImageHeight) {
+    refs.candidateCardImageHeight.value = String(normalized.imageHeightPx);
+  }
+}
 
 function normalizeHexColor(rawValue, fallbackValue) {
   const value = String(rawValue || '').trim();
@@ -93,7 +162,12 @@ const state = {
   candidates: [],
   draggedImageId: null,
   draggedCandidateId: null,
-  defaultCandidateTitleSource: 'image-name'
+  defaultCandidateTitleSource: 'image-name',
+  themeDefinitions: [DEFAULT_THEME_DEFINITION],
+  bannerImage: '',
+  footerBrandText: BRAND_FOOTER_TEXT,
+  footerBrandLogo: '',
+  candidateCardStyle: { ...CANDIDATE_CARD_STYLE_DEFAULTS }
 };
 
 const refs = {
@@ -114,6 +188,13 @@ const refs = {
   completionLabelRow: document.getElementById('completionLabelRow'),
   completionOptions: document.getElementById('completionOptions'),
   ballotTheme: document.getElementById('ballotTheme'),
+  candidateCardVariant: document.getElementById('candidateCardVariant'),
+  candidateCardCycleSeconds: document.getElementById('candidateCardCycleSeconds'),
+  candidateCardSwipeMs: document.getElementById('candidateCardSwipeMs'),
+  candidateCardImageHeight: document.getElementById('candidateCardImageHeight'),
+  bannerImageInput: document.getElementById('bannerImageInput'),
+  bannerPreview: document.getElementById('bannerPreview'),
+  clearBannerBtn: document.getElementById('clearBannerBtn'),
   enableExclusionRow: document.getElementById('enableExclusionRow'),
   promptForNameRow: document.getElementById('nameSettings'),
   fileInput: document.getElementById('fileInput'),
@@ -127,7 +208,9 @@ const refs = {
   useImageNameForCandidateTitle: document.getElementById('useImageNameForCandidateTitle'),
   previewFrame: document.getElementById('previewFrame'),
   refreshPreviewBtn: document.getElementById('refreshPreviewBtn'),
-  previewModeButtons: Array.from(document.querySelectorAll('[data-preview-mode]')),
+  previewMobileToggle: document.getElementById('previewMobileToggle'),
+  builderFooterLogo: document.getElementById('builderFooterLogo'),
+  builderFooterText: document.getElementById('builderFooterText'),
   tabButtons: Array.from(document.querySelectorAll('.tab'))
 };
 
@@ -136,6 +219,111 @@ function normalizeKey(value) {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-');
+}
+
+function normalizeThemeId(rawThemeId) {
+  const key = normalizeKey(rawThemeId);
+  if (LEGACY_THEME_ALIASES[key]) {
+    return LEGACY_THEME_ALIASES[key];
+  }
+  return key || 'default';
+}
+
+function makeThemeDisplayName(themeId) {
+  const words = String(themeId || '')
+    .split('-')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1));
+  return words.join(' ') || 'Theme';
+}
+
+async function loadThemeCatalog() {
+  const fallbackCatalog = [DEFAULT_THEME_DEFINITION];
+  const manifestPaths = [
+    './themes/themes.json',
+    '../themes/themes.json',
+    '../../src/themes/themes.json'
+  ];
+
+  let manifest = null;
+  for (const path of manifestPaths) {
+    try {
+      const response = await fetch(path, { cache: 'no-store' });
+      if (response.ok) {
+        manifest = await response.json();
+        break;
+      }
+    } catch {
+      // Try the next manifest path.
+    }
+  }
+
+  const themeFileNames = Array.isArray(manifest)
+    ? manifest
+    : Array.isArray(manifest?.themes)
+      ? manifest.themes
+      : [];
+
+  if (!themeFileNames.length) {
+    return fallbackCatalog;
+  }
+
+  const loadedThemes = [];
+  const themeBasePaths = ['./themes/', '../themes/'];
+  for (const fileName of themeFileNames) {
+    const cleanFileName = String(fileName || '').trim();
+    if (!cleanFileName) continue;
+    const themeId = normalizeThemeId(cleanFileName.replace(/\.css$/i, ''));
+    if (!themeId || themeId === 'default') continue;
+
+    let cssText = '';
+    for (const basePath of themeBasePaths) {
+      try {
+        const response = await fetch(`${basePath}${cleanFileName}`, { cache: 'no-store' });
+        if (!response.ok) continue;
+        cssText = String(await response.text() || '').trim();
+        if (cssText) break;
+      } catch {
+        // Try the next base path.
+      }
+    }
+
+    if (!cssText) {
+      continue;
+    }
+
+    loadedThemes.push({
+      id: themeId,
+      name: makeThemeDisplayName(themeId),
+      cssText
+    });
+  }
+
+  const deduped = [];
+  const seenIds = new Set(['default']);
+  loadedThemes.forEach((theme) => {
+    if (seenIds.has(theme.id)) return;
+    seenIds.add(theme.id);
+    deduped.push(theme);
+  });
+
+  return [DEFAULT_THEME_DEFINITION, ...deduped];
+}
+
+function populateThemeSelectOptions(themeDefinitions) {
+  if (!refs.ballotTheme) return;
+  refs.ballotTheme.innerHTML = '';
+  themeDefinitions.forEach((theme) => {
+    const option = document.createElement('option');
+    option.value = theme.id;
+    option.textContent = theme.name;
+    refs.ballotTheme.appendChild(option);
+  });
+}
+
+function getThemeDefinitionById(themeId) {
+  const normalizedId = normalizeThemeId(themeId);
+  return state.themeDefinitions.find((theme) => theme.id === normalizedId) || DEFAULT_THEME_DEFINITION;
 }
 
 function pickSelectValue(selectElement, rawValue, fallbackValue) {
@@ -152,6 +340,27 @@ function pickSelectValue(selectElement, rawValue, fallbackValue) {
   }
 
   return fallbackValue;
+}
+
+function normalizeBallotTheme(rawTheme) {
+  return normalizeThemeId(rawTheme);
+}
+
+function applyBuilderTheme() {
+  const nextTheme = normalizeBallotTheme(refs.ballotTheme?.value || builderDefaults.ballotTheme || 'default');
+  if (refs.ballotTheme && refs.ballotTheme.value !== nextTheme) {
+    refs.ballotTheme.value = nextTheme;
+  }
+
+  const themeDefinition = getThemeDefinitionById(nextTheme);
+  const styleId = 'vb-builder-theme-style';
+  let styleElement = document.getElementById(styleId);
+  if (!styleElement) {
+    styleElement = document.createElement('style');
+    styleElement.id = styleId;
+    document.head.appendChild(styleElement);
+  }
+  styleElement.textContent = themeDefinition.cssText || '';
 }
 
 function applyBuilderDefaults() {
@@ -173,14 +382,29 @@ function applyBuilderDefaults() {
   if (refs.completionRuleCount) refs.completionRuleCount.value = String(builderDefaults.completionRuleCount || 1);
   if (refs.completionLabel) refs.completionLabel.value = builderDefaults.completionLabel || 'Copy results';
   if (refs.ballotTheme) {
-    refs.ballotTheme.value = pickSelectValue(refs.ballotTheme, builderDefaults.ballotTheme, 'default');
+    const normalizedTheme = normalizeBallotTheme(builderDefaults.ballotTheme || 'default');
+    refs.ballotTheme.value = pickSelectValue(refs.ballotTheme, normalizedTheme, 'default');
   }
   if (refs.useImageNameForCandidateTitle) {
     refs.useImageNameForCandidateTitle.checked = builderDefaults.useImageNameForCandidateTitle !== false;
   }
+  state.candidateCardStyle = normalizeCandidateCardStyle(builderDefaults.candidateCardStyle);
+  writeCandidateCardStyleToControls(state.candidateCardStyle);
+  state.bannerImage = typeof builderDefaults.bannerImage === 'string' ? builderDefaults.bannerImage : '';
+  if (typeof builderDefaults.footerBrandText === 'string' && builderDefaults.footerBrandText.trim()) {
+    state.footerBrandText = builderDefaults.footerBrandText.trim();
+  }
+  if (typeof builderDefaults.footerBrandLogo === 'string' && builderDefaults.footerBrandLogo.startsWith('data:image/')) {
+    state.footerBrandLogo = builderDefaults.footerBrandLogo;
+  }
   state.defaultCandidateTitleSource = refs.useImageNameForCandidateTitle?.checked ? 'image-name' : 'blank';
+  renderBannerPreview();
+  renderBuilderFooter();
 }
 
+state.themeDefinitions = await loadThemeCatalog();
+state.footerBrandLogo = await loadDefaultFooterBrandLogo();
+populateThemeSelectOptions(state.themeDefinitions);
 applyBuilderDefaults();
 
 refs.fileInput.addEventListener('change', (event) => handleFiles(Array.from(event.target.files || [])));
@@ -204,6 +428,23 @@ refs.useImageNameForCandidateTitle?.addEventListener('change', () => {
   state.defaultCandidateTitleSource = refs.useImageNameForCandidateTitle.checked ? 'image-name' : 'blank';
   syncPreview();
 });
+refs.bannerImageInput?.addEventListener('change', async (event) => {
+  const file = event.target.files?.[0];
+  if (!file || !file.type.startsWith('image/')) {
+    return;
+  }
+  state.bannerImage = await processBannerImage(file);
+  renderBannerPreview();
+  syncPreview();
+});
+refs.clearBannerBtn?.addEventListener('click', () => {
+  state.bannerImage = '';
+  if (refs.bannerImageInput) {
+    refs.bannerImageInput.value = '';
+  }
+  renderBannerPreview();
+  syncPreview();
+});
 refs.addTierBtn?.addEventListener('click', () => {
   const tiers = getTiers();
   if (tiers.length >= 10) return;
@@ -215,12 +456,9 @@ refs.addTierBtn?.addEventListener('click', () => {
   syncPreview();
 });
 refs.refreshPreviewBtn?.addEventListener('click', () => syncPreview());
-refs.previewModeButtons.forEach((button) => {
-  button.addEventListener('click', () => {
-    refs.previewModeButtons.forEach((entry) => entry.classList.toggle('active', entry === button));
-    updatePreviewViewport(refs.previewFrame, button.dataset.previewMode || 'desktop');
-    syncPreview();
-  });
+refs.previewMobileToggle?.addEventListener('change', () => {
+  applyPreviewViewportMode();
+  syncPreview();
 });
 
 initializeBuilderConfigUi({
@@ -336,6 +574,153 @@ function processImage(file, callback) {
   reader.readAsDataURL(file);
 }
 
+function estimateDataUrlBytes(dataUrl) {
+  const payload = String(dataUrl || '').split(',')[1] || '';
+  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
+}
+
+function processBannerImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 1280;
+        const maxHeight = 220;
+        const widthScale = maxWidth / Math.max(1, img.width);
+        const heightScale = maxHeight / Math.max(1, img.height);
+        const scale = Math.min(1, widthScale, heightScale);
+        const width = Math.max(240, Math.round(img.width * scale));
+        const height = Math.max(60, Math.round(img.height * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        context.drawImage(img, 0, 0, width, height);
+
+        const qualitySteps = [0.62, 0.54, 0.46, 0.38, 0.3];
+        let chosenDataUrl = canvas.toDataURL('image/jpeg', qualitySteps[0]);
+        for (const quality of qualitySteps) {
+          const candidate = canvas.toDataURL('image/jpeg', quality);
+          chosenDataUrl = candidate;
+          if (estimateDataUrlBytes(candidate) <= 160 * 1024) {
+            break;
+          }
+        }
+        resolve(chosenDataUrl);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function processFooterLogoImage(sourceImage) {
+  return new Promise((resolve) => {
+    const maxWidth = 78;
+    const maxHeight = 78;
+    const widthScale = maxWidth / Math.max(1, sourceImage.width);
+    const heightScale = maxHeight / Math.max(1, sourceImage.height);
+    const scale = Math.min(1, widthScale, heightScale);
+    const width = Math.max(24, Math.round(sourceImage.width * scale));
+    const height = Math.max(24, Math.round(sourceImage.height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    context.drawImage(sourceImage, 0, 0, width, height);
+
+    const webpProbe = canvas.toDataURL('image/webp', 0.6);
+    const supportsWebp = webpProbe.startsWith('data:image/webp');
+
+    if (supportsWebp) {
+      const qualitySteps = [0.64, 0.54, 0.44, 0.36];
+      let chosen = webpProbe;
+      for (const quality of qualitySteps) {
+        const candidate = canvas.toDataURL('image/webp', quality);
+        chosen = candidate;
+        if (estimateDataUrlBytes(candidate) <= 18 * 1024) {
+          break;
+        }
+      }
+      resolve(chosen);
+      return;
+    }
+
+    // PNG fallback preserves transparency even when WebP encoding is unavailable.
+    resolve(canvas.toDataURL('image/png'));
+  });
+}
+
+async function loadDefaultFooterBrandLogo() {
+  for (const path of BRAND_LOGO_CANDIDATE_PATHS) {
+    try {
+      const response = await fetch(path, { cache: 'force-cache' });
+      if (!response.ok) continue;
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const image = new Image();
+      const dataUrl = await new Promise((resolve) => {
+        image.onload = async () => {
+          const compressed = await processFooterLogoImage(image);
+          URL.revokeObjectURL(objectUrl);
+          resolve(compressed);
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          resolve('');
+        };
+        image.src = objectUrl;
+      });
+
+      if (typeof dataUrl === 'string' && dataUrl.startsWith('data:image/')) {
+        return dataUrl;
+      }
+    } catch {
+      // Try next path.
+    }
+  }
+
+  return '';
+}
+
+function renderBuilderFooter() {
+  if (refs.builderFooterText) {
+    refs.builderFooterText.textContent = state.footerBrandText || BRAND_FOOTER_TEXT;
+  }
+
+  if (!refs.builderFooterLogo) return;
+  if (state.footerBrandLogo && state.footerBrandLogo.startsWith('data:image/')) {
+    refs.builderFooterLogo.src = state.footerBrandLogo;
+    refs.builderFooterLogo.hidden = false;
+  } else {
+    refs.builderFooterLogo.removeAttribute('src');
+    refs.builderFooterLogo.hidden = true;
+  }
+}
+
+function renderBannerPreview() {
+  if (!refs.bannerPreview || !refs.clearBannerBtn) return;
+  if (!state.bannerImage) {
+    refs.bannerPreview.hidden = true;
+    refs.bannerPreview.innerHTML = '';
+    refs.clearBannerBtn.hidden = true;
+    return;
+  }
+
+  const sizeKb = Math.max(1, Math.round(estimateDataUrlBytes(state.bannerImage) / 1024));
+  refs.bannerPreview.hidden = false;
+  refs.bannerPreview.innerHTML = `
+    <img src="${state.bannerImage}" alt="Banner preview" />
+    <small>Compressed banner size: ${sizeKb} KB</small>
+  `;
+  refs.clearBannerBtn.hidden = false;
+}
+
 function addCandidate(initialName = '', description = '') {
   const candidate = {
     id: crypto.randomUUID(),
@@ -371,13 +756,22 @@ function autoCreateCandidates() {
 }
 
 function syncPreview() {
+  applyBuilderTheme();
   if (refs.previewFrame) {
     renderPreview();
   }
 }
 
+function getPreviewViewportMode() {
+  return refs.previewMobileToggle?.checked ? 'mobile' : 'desktop';
+}
+
+function applyPreviewViewportMode() {
+  updatePreviewViewport(refs.previewFrame, getPreviewViewportMode());
+}
+
 function attachStateListeners() {
-  [refs.contestTitle, refs.votingMode, refs.sortMode, refs.pairwiseAlgorithm, refs.enableExclusion, refs.promptForName, refs.completionRuleMode, refs.completionRuleCount, refs.completionLabel, refs.ballotTheme].forEach((element) => {
+  [refs.contestTitle, refs.votingMode, refs.sortMode, refs.pairwiseAlgorithm, refs.enableExclusion, refs.promptForName, refs.completionRuleMode, refs.completionRuleCount, refs.completionLabel, refs.ballotTheme, refs.candidateCardVariant, refs.candidateCardCycleSeconds, refs.candidateCardSwipeMs, refs.candidateCardImageHeight].forEach((element) => {
     if (element) {
       element.addEventListener('input', syncPreview);
       element.addEventListener('change', syncPreview);
@@ -720,6 +1114,8 @@ function buildBallotHtml() {
   const contestTitle = refs.contestTitle.value.trim() || builderDefaults.contestTitle || 'Contest';
   const mode = refs.votingMode.value;
   const sortMode = refs.sortMode?.value || 'builder';
+  const selectedTheme = getThemeDefinitionById(refs.ballotTheme?.value || builderDefaults.ballotTheme || 'default');
+  state.candidateCardStyle = readCandidateCardStyleFromControls();
   const ballotData = JSON.stringify(buildBallotObject(
     contestTitle,
     mode,
@@ -733,7 +1129,11 @@ function buildBallotHtml() {
       tiers: getTiers(),
       completionRule: buildCompletionRule(),
       completionLabel: refs.completionLabel?.value?.trim() || builderDefaults.completionLabel || 'Copy results',
-      ballotTheme: refs.ballotTheme?.value || builderDefaults.ballotTheme || 'default'
+      ballotTheme: selectedTheme.id,
+      candidateCardStyle: state.candidateCardStyle,
+      bannerImage: state.bannerImage || '',
+      footerBrandText: state.footerBrandText || BRAND_FOOTER_TEXT,
+      footerBrandLogo: state.footerBrandLogo || ''
     },
     builderDefaults
   ));
@@ -745,6 +1145,12 @@ function buildBallotHtml() {
 
   const asset = templateAssets[mode];
   let runtimeScript = asset.js;
+  let runtimeCss = asset.css;
+
+  if (selectedTheme.cssText) {
+    runtimeCss = `${runtimeCss}\n\n/* Theme: ${selectedTheme.id} */\n${selectedTheme.cssText}`;
+  }
+
   if (mode === 'pairwise') {
     const selectedAlgorithm = refs.pairwiseAlgorithm?.value || builderDefaults.pairwiseAlgorithm || 'winner-stays';
     const strategyImplementation = pairwiseStrategyImplementations[selectedAlgorithm]
@@ -756,11 +1162,12 @@ function buildBallotHtml() {
   return asset.html
     .replaceAll('{{TITLE}}', escapeHtml(contestTitle))
     .replaceAll('{{DATA}}', ballotData)
-    .replaceAll('{{CSS}}', asset.css)
+    .replaceAll('{{CSS}}', runtimeCss)
     .replaceAll('{{JS}}', runtimeScript);
 }
 
 function collectBuilderPresetSnapshot() {
+  state.candidateCardStyle = readCandidateCardStyleFromControls();
   return {
     builder: {
       contestTitle: refs.contestTitle?.value?.trim() || '',
@@ -772,7 +1179,9 @@ function collectBuilderPresetSnapshot() {
       completionRuleMode: refs.completionRuleMode?.value || 'all-ranked',
       completionRuleCount: Number(refs.completionRuleCount?.value || 1),
       completionLabel: refs.completionLabel?.value?.trim() || 'Copy results',
-      ballotTheme: refs.ballotTheme?.value || 'default',
+      ballotTheme: normalizeBallotTheme(refs.ballotTheme?.value || 'default'),
+      candidateCardStyle: state.candidateCardStyle,
+      bannerImage: state.bannerImage || '',
       tiers: getTiers(),
       useImageNameForCandidateTitle: refs.useImageNameForCandidateTitle?.checked !== false
     }
@@ -843,4 +1252,5 @@ renderTierInputs(DEFAULT_TIERS);
 updateActionButtons();
 renderPool();
 renderCandidates();
+applyPreviewViewportMode();
 syncPreview();

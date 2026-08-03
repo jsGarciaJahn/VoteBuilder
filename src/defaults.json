@@ -10,6 +10,12 @@
     "completionRuleCount": 1,
     "completionLabel": "Done",
     "ballotTheme": "default",
+    "candidateCardStyle": {
+      "variant": "default",
+      "autoCycleMs": 4500,
+      "swipeMs": 420,
+      "imageHeightPx": 150
+    },
     "tiers": [
       { "label": "S", "color": "#fbbf24" },
       { "label": "A", "color": "#f59e0b" },

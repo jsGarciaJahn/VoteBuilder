@@ -31,6 +31,15 @@
               <div class="field-control"><input id="contestTitle" type="text" /></div>
             </div>
 
+            <div class="field-row" id="bannerRow">
+              <label for="bannerImageInput" class="field-label">Top banner</label>
+              <div class="field-control banner-control">
+                <input id="bannerImageInput" type="file" accept="image/*" />
+                <div id="bannerPreview" class="banner-preview" hidden></div>
+                <button id="clearBannerBtn" class="secondary small" type="button" hidden>Remove banner</button>
+              </div>
+            </div>
+
             <div class="field-row">
               <label for="votingMode" class="field-label">Ballot mode</label>
               <div class="field-control"><select id="votingMode">
@@ -101,9 +110,32 @@
               <label for="ballotTheme" class="field-label">Ballot theme</label>
               <div class="field-control"><select id="ballotTheme">
                 <option value="default">Default</option>
-                <option value="modern">Modern</option>
-                <option value="contrast">High contrast</option>
               </select></div>
+            </div>
+
+            <div class="field-row">
+              <label for="candidateCardVariant" class="field-label">Candidate card variant</label>
+              <div class="field-control"><select id="candidateCardVariant">
+                <option value="default">Current (default)</option>
+                <option value="compact">Compact</option>
+                <option value="poster">Poster</option>
+                <option value="minimal">Minimal</option>
+              </select></div>
+            </div>
+
+            <div class="field-row">
+              <label for="candidateCardCycleSeconds" class="field-label">Image cycle (seconds)</label>
+              <div class="field-control"><input id="candidateCardCycleSeconds" type="number" min="1.8" max="15" step="0.1" value="4.5" /></div>
+            </div>
+
+            <div class="field-row">
+              <label for="candidateCardSwipeMs" class="field-label">Swipe speed (ms)</label>
+              <div class="field-control"><input id="candidateCardSwipeMs" type="number" min="180" max="900" step="10" value="420" /></div>
+            </div>
+
+            <div class="field-row">
+              <label for="candidateCardImageHeight" class="field-label">Image height (px)</label>
+              <div class="field-control"><input id="candidateCardImageHeight" type="number" min="110" max="260" step="5" value="150" /></div>
             </div>
           </div>
 
@@ -149,16 +181,18 @@
 
         <section id="previewPanel" role="tabpanel" hidden>
           <div class="preview-shell">
-            <div id="previewFrame" class="preview-frame"></div>
             <div class="preview-footer">
               <div class="preview-toolbar-actions">
-                <div class="segmented">
-                  <button type="button" class="segmented-btn active" data-preview-mode="desktop">Desktop</button>
-                  <button type="button" class="segmented-btn" data-preview-mode="mobile">Mobile</button>
-                </div>
+                <label class="viewport-toggle" for="previewMobileToggle" aria-label="Preview viewport mode">
+                  <span class="viewport-label">Desktop</span>
+                  <input id="previewMobileToggle" type="checkbox" aria-label="Toggle mobile preview" />
+                  <span class="viewport-track" aria-hidden="true"><span class="viewport-thumb"></span></span>
+                  <span class="viewport-label">Mobile</span>
+                </label>
                 <button type="button" id="refreshPreviewBtn" class="secondary">Refresh preview</button>
               </div>
             </div>
+            <div id="previewFrame" class="preview-frame"></div>
           </div>
         </section>
 
@@ -171,6 +205,11 @@
             </div>
           </div>
         </section>
+
+        <footer class="builder-brand-footer" aria-label="Builder attribution">
+          <img id="builderFooterLogo" alt="Juan Solo logo" hidden />
+          <small id="builderFooterText">made with AI by Juan Solo</small>
+        </footer>
       </section>
     </main>
 

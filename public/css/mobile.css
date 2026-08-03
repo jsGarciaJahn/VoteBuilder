@@ -48,12 +48,18 @@
   .candidate-list { grid-template-columns: 1fr; }
   .preview-toolbar-actions {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-end;
     flex-wrap: wrap;
   }
+  #previewPanel {
+    margin-top: -16px;
+  }
   .preview-footer {
-    margin: 0 -16px -16px;
-    padding: 12px 16px 16px;
+    margin: 0;
+    padding: 10px 16px 12px;
+  }
+  .viewport-toggle {
+    margin-left: auto;
   }
   .preview-frame,
   .preview-frame iframe {

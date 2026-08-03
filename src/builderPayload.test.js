@@ -69,10 +69,72 @@ describe('buildBallotObject', () => {
 
   it('includes the ballot theme in the payload', () => {
     const ballot = buildBallotObject('Contest', 'ranked-choice', 'builder', true, sampleCandidates, {
+      ballotTheme: 'solo'
+    });
+
+    expect(ballot.ballotTheme).toBe('solo');
+  });
+
+  it('maps legacy theme values to supported themes', () => {
+    const ballot = buildBallotObject('Contest', 'ranked-choice', 'builder', true, sampleCandidates, {
       ballotTheme: 'contrast'
     });
 
-    expect(ballot.ballotTheme).toBe('contrast');
+    expect(ballot.ballotTheme).toBe('dark');
+  });
+
+  it('includes candidate card style options in payload', () => {
+    const ballot = buildBallotObject('Contest', 'ranked-choice', 'builder', true, sampleCandidates, {
+      candidateCardStyle: {
+        variant: 'poster',
+        autoCycleMs: 3600,
+        swipeMs: 320,
+        imageHeightPx: 190
+      }
+    });
+
+    expect(ballot.candidateCardStyle).toEqual({
+      variant: 'poster',
+      autoCycleMs: 3600,
+      swipeMs: 320,
+      imageHeightPx: 190
+    });
+  });
+
+  it('normalizes invalid candidate card style values', () => {
+    const ballot = buildBallotObject('Contest', 'ranked-choice', 'builder', true, sampleCandidates, {
+      candidateCardStyle: {
+        variant: 'unknown',
+        autoCycleMs: 99,
+        swipeMs: 9999,
+        imageHeightPx: 9999
+      }
+    });
+
+    expect(ballot.candidateCardStyle).toEqual({
+      variant: 'default',
+      autoCycleMs: 1800,
+      swipeMs: 900,
+      imageHeightPx: 260
+    });
+  });
+
+  it('includes compressed top banner image in payload', () => {
+    const ballot = buildBallotObject('Contest', 'ranked-choice', 'builder', true, sampleCandidates, {
+      bannerImage: 'data:image/jpeg;base64,ABC123'
+    });
+
+    expect(ballot.bannerImage).toBe('data:image/jpeg;base64,ABC123');
+  });
+
+  it('includes footer attribution text and logo in payload', () => {
+    const ballot = buildBallotObject('Contest', 'ranked-choice', 'builder', true, sampleCandidates, {
+      footerBrandText: 'made with AI by Juan Solo',
+      footerBrandLogo: 'data:image/jpeg;base64,FOOTER'
+    });
+
+    expect(ballot.footerBrandText).toBe('made with AI by Juan Solo');
+    expect(ballot.footerBrandLogo).toBe('data:image/jpeg;base64,FOOTER');
   });
 
   it('includes pairwise algorithm in the payload', () => {
