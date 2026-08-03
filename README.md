@@ -1,121 +1,90 @@
 # VoteBuilder
 
-VoteBuilder is a lightweight web app for creating standalone voting ballots from images and candidate data. It supports ranked-choice, tier-list, and pairwise ballots, and it can generate self-contained ballot HTML that runs without any additional build step.
+VoteBuilder is a web app for creating standalone voting ballots from candidate data and images. It supports ranked-choice, tier-list, and pairwise ballots, and compiles mode-specific HTML, CSS, and JavaScript payloads for distribution.
 
-## What the app does
+## Current state
 
-VoteBuilder combines a builder experience and a ballot runtime:
+- Builder UI is in [public/index.html](public/index.html) and [public/js/app.js](public/js/app.js).
+- Generated ballot assets are compiled into [src/generatedTemplates.js](src/generatedTemplates.js) via [build-templates.js](build-templates.js).
+- Shared builder/runtime logic is modularized in [src](src).
+- Regression tests are in [tests](tests).
 
-- The builder lets you create a contest, add candidates, upload images, and configure ballot behavior.
-- The generated ballot is a standalone HTML experience that can be shared with voters.
-- Ballot results are copied to the clipboard so they can be pasted into a spreadsheet or reporting workflow.
+## Key features
 
-## Core features
+### Builder features
 
-### Builder experience
+- Contest and ballot configuration.
+- Ballot mode selection: ranked-choice, tier-list, pairwise.
+- Ordering modes: builder order, alphabetical, randomized ballot order.
+- Optional voter-name prompt and optional exclusion selection.
+- Pairwise algorithm selection, including tournament-style options.
+- Completion rule and completion label configuration.
+- Ballot theming with dynamic catalog loading from [public/themes](public/themes).
+- Candidate-card display controls including variant, cycle timing, and image height.
+- Image pool upload, drag-drop candidate composition, and batch candidate creation.
+- Preview viewport toggle (desktop and mobile).
+- Workspace persistence and project save/load using .bcd files from the File menu.
 
-The builder in [public/index.html](public/index.html) and [public/js/app.js](public/js/app.js) includes:
+### Output features
 
-- Contest title configuration
-- Ballot mode selection for:
-  - Ranked choice
-  - Tier list
-  - Pairwise
-- Ordering options:
-  - Keep the builder-defined order
-  - Sort alphabetically
-  - Randomize the displayed order when the ballot opens
-- Optional exclusion behavior so a voter can exclude one candidate during setup
-- Optional name prompting for the voter
-- Optional inclusion of the voter name in the copied ballot payload
-- Completion-rule configuration for the ranked-choice flow:
-  - Require all ranked entries
-  - Require at least one ranked entry
-  - Require a minimum count
-  - Require an exact count
-- Custom completion button label
-- Lightweight ballot themes:
-  - Default
-  - Modern
-  - High contrast
-- Image upload and candidate management
-- Drag-and-drop image handling into the image pool and candidate cards
-- Batch creation of candidates from uploaded images
-- Candidate reordering and removal in the builder
+- Delivery methods: clipboard, file download, mailto.
+- Content formats: plain text, JSON, CSV.
+- Format-specific options: file name base, CSV delimiter, mailto fields.
+- Shared output normalization and formatting in [src/outputSettings.js](src/outputSettings.js).
 
-### Ballot modes
+### Ballot runtime features
 
-#### Ranked choice
-
-The ranked-choice ballot is the most feature-rich experience. It supports:
-
-- Click-to-rank candidates from the candidate grid
-- Drag-and-drop ranking into a ranked list
-- Dragging ranked cards back out to remove them
-- Dragging candidates from the grid into the ranking list to add them
-- Undo and restart actions
-- Completion-state handling based on the configured rule
-- Sticky action bar with completion, undo, and restart controls
-- One-time auto-scroll to the ranking summary when the threshold is first reached
-- Optional exclusion selection during setup
-- Name prompt and theme support
-- Randomized display order when configured
-
-#### Tier list
-
-The tier-list mode lets voters assign candidates to tiers such as S, A, B, C, and D, then copy the assignment payload.
-
-#### Pairwise
-
-The pairwise mode presents candidates in matchup-style selections and builds a ranking from the choices made.
+- Standalone generated ballots for ranked-choice, tier-list, and pairwise voting.
+- Shared ballot shell and setup fragment composition from [templates/shared](templates/shared).
+- Shared runtime helpers split by concern:
+  - [templates/shared/ballot-core.js](templates/shared/ballot-core.js)
+  - [templates/shared/ballot-media.js](templates/shared/ballot-media.js)
+  - [templates/shared/ballot-exclusion.js](templates/shared/ballot-exclusion.js)
+  - [templates/shared/ballot-ranking.js](templates/shared/ballot-ranking.js)
+  - [templates/shared/ballot-output.js](templates/shared/ballot-output.js)
+- Mode-aware CSS composition using shared base and overlays:
+  - [templates/shared/ballot-base.css](templates/shared/ballot-base.css)
+  - [templates/shared/ballot-ranking-list.css](templates/shared/ballot-ranking-list.css)
+  - [templates/shared/ballot-tier-list.css](templates/shared/ballot-tier-list.css)
+  - [templates/shared/ballot-ranking.css](templates/shared/ballot-ranking.css)
+  - [templates/shared/ballot-tier.css](templates/shared/ballot-tier.css)
+  - [templates/shared/ballot-pairwise.css](templates/shared/ballot-pairwise.css)
 
 ## Project structure
 
-- [public/](public/) — Builder UI HTML, CSS, and JavaScript
-- [templates/](templates/) — Ballot templates and runtime logic for each mode
-- [src/](src/) — Shared payload builder, generated template bundle, and regression tests
-- [build-templates.js](build-templates.js) — Compiles the ballot templates into the generated asset bundle
-- [docs/](docs/) — Planning and implementation notes
+- [public](public): builder UI, styles, themes, static assets.
+- [src](src): shared modules and generated template bundle.
+- [templates](templates): source templates for ballot HTML/CSS/JS composition.
+- [tests](tests): Vitest regression and UI behavior tests.
+- [docs](docs): planning and implementation notes.
+- [architecture.md](architecture.md): current architecture and next-step plan.
 
-## How generation works
+## Build and test
 
-The builder serializes candidate and ballot settings into a payload object with [src/builderPayload.js](src/builderPayload.js). The templates in [templates/](templates/) are compiled into [src/generatedTemplates.js](src/generatedTemplates.js) by [build-templates.js](build-templates.js), which the builder uses to render the generated ballot experience.
+Install dependencies:
 
-## Development and testing
-
-### Install dependencies
-
-```bash
 npm install
-```
 
-### Build the generated ballot templates
+Build templates:
 
-```bash
 npm run build
-```
 
-### Run the test suite
+Run tests:
 
-```bash
 npm run test
-```
 
-### Watch tests while developing
+Watch tests:
 
-```bash
 npm run test:watch
-```
 
-## Testing coverage
+## How template generation works
 
-The project includes regression tests for:
-
-- Builder payload serialization
-- Ranked-choice ballot runtime behavior
-- Setup and UI interactions
-- Generated template integration
+1. Builder state is serialized with [src/builderPayload.js](src/builderPayload.js).
+2. [build-templates.js](build-templates.js) composes shared and mode-specific HTML/CSS/JS template parts.
+3. The compiled template map is written to [src/generatedTemplates.js](src/generatedTemplates.js).
+4. The builder injects serialized data into the selected template at generation time.
 
 ## Notes
 
-The generated ballots are intended to be standalone and easy to distribute. They do not require a server to run locally, although serving the project through a simple static host is the most straightforward way to preview the builder UI.
+- Ballots are generated as standalone artifacts and can be distributed without a backend.
+- For local development, serving the project via a static host is recommended.
