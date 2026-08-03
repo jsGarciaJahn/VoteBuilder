@@ -1,4 +1,5 @@
 import { templateAssets } from '../../src/generatedTemplates.js';
+import { buildBallotObject } from '../../src/builderPayload.js';
 
 const state = {
   imagePool: [],
@@ -325,31 +326,18 @@ function generateBallot() {
   const contestTitle = refs.contestTitle.value.trim() || 'Beauty Contest';
   const mode = refs.votingMode.value;
   const sortMode = refs.sortMode?.value || 'builder';
-  const validCandidates = state.candidates.filter((candidate) => candidate.images.length > 0).map((candidate) => ({ ...candidate }));
-  const allowExclusion = refs.enableExclusion.checked;
-
-  if (!validCandidates.length) {
-    alert('Add at least one candidate with an image before generating a ballot.');
-    return;
-  }
-
-  const sortedCandidates = [...validCandidates];
-  if (sortMode === 'alpha') {
-    sortedCandidates.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-  }
-
-  const ballotData = JSON.stringify({
+  const ballotData = JSON.stringify(buildBallotObject(
     contestTitle,
     mode,
     sortMode,
-    allowExclusion,
-    candidates: sortedCandidates.map((candidate) => ({
-      id: candidate.id,
-      name: candidate.name,
-      description: candidate.description || '',
-      images: candidate.images.map((image) => image.b64)
-    }))
-  });
+    refs.enableExclusion.checked,
+    state.candidates
+  ));
+
+  if (!JSON.parse(ballotData).candidates.length) {
+    alert('Add at least one candidate with an image before generating a ballot.');
+    return;
+  }
 
   const asset = templateAssets[mode];
   const html = asset.html

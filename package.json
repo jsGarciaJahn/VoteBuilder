@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node build-templates.js"
+    "build": "node build-templates.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0"
   }
 }

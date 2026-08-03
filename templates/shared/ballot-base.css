@@ -130,6 +130,33 @@ button {
   background: #f8fafc;
 }
 
+.ranking-item {
+  cursor: grab;
+}
+
+.ranking-item.dragging {
+  opacity: 0.45;
+}
+
+.ranking-item.drag-over {
+  outline: 2px dashed #2563eb;
+}
+
+.remove-drop-zone {
+  margin: 12px 0;
+  padding: 12px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  text-align: center;
+  color: #475569;
+  background: #f8fafc;
+}
+
+.remove-drop-zone.drag-over {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
 @media (max-width: 700px) {
   main { padding: 10px; }
   .grid { grid-template-columns: 1fr; }
