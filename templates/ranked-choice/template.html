@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{TITLE}}</title>
+    <style>{{CSS}}</style>
+  </head>
+  <body>
+    <main>
+      <div class="panel">
+        <h1>{{TITLE}}</h1>
+        <div id="setup">
+          <label for="voterName">Your name</label>
+          <input id="voterName" type="text" placeholder="Enter your name" />
+          <label class="toggle-row" id="excludeToggleRow" hidden>
+            <input id="excludeToggle" type="checkbox" />
+            Exclude my entry from ranking
+          </label>
+          <label for="excludeSelect" id="excludeLabel" hidden>Choose your entry</label>
+          <select id="excludeSelect" hidden></select>
+          <button id="startBtn">Start ranking</button>
+        </div>
+        <div id="ballot" hidden>
+          <h2>Rank candidates from most preferred to least preferred</h2>
+          <div class="rank-actions">
+            <button id="undoBtn">Undo last pick</button>
+            <button id="restartBtn">Restart ranking</button>
+          </div>
+          <div class="grid" id="cardGrid"></div>
+          <h3>Your ranking</h3>
+          <ol class="ranking-list" id="rankingList"></ol>
+          <button id="copyBtn">Copy results</button>
+        </div>
+      </div>
+    </main>
+    <script>
+      const ballotData = {{DATA}};
+    </script>
+    <script>{{JS}}</script>
+  </body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ballot Builder & Contest Generator</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 750px; margin: 30px auto; padding: 0 20px; line-height: 1.5; }
+    .config-box { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; }
+    input[type="text"] { width: 100%; padding: 8px; font-size: 14px; box-sizing: border-box; }
+    .drop-zone { border: 2px dashed #007bff; border-radius: 8px; padding: 30px; text-align: center; background: #fff; cursor: pointer; color: #555; }
+    .drop-zone.hover { background: #e9ecef; border-color: #0056b3; }
+    .preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin: 20px 0; }
+    .preview-card { border: 1px solid #ddd; padding: 8px; border-radius: 6px; text-align: center; background: #fff; }
+    .preview-card img { width: 100%; height: 100px; object-fit: cover; border-radius: 4px; }
+    .preview-card input { width: 95%; margin-top: 6px; font-size: 13px; padding: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { padding: 12px 24px; font-size: 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #218838; }
+  </style>
+</head>
+<body>
+
+  <h2>Contest Setup</h2>
+  
+  <div class="config-box">
+    <label for="contestTitle">Contest Title / Name:</label>
+    <input type="text" id="contestTitle" value="Beauty Contest 2026" placeholder="e.g. Logo Design Contest">
+  </div>
+
+  <h2>Add Candidates (Auto-Compressed)</h2>
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    Drag & Drop Local Images Here (or Click to Browse)
+    <input type="file" id="fileInput" multiple accept="image/*" style="display:none">
+  </div>
+
+  <div class="preview-grid" id="previewGrid"></div>
+
+  <button onclick="generateBallotFile()">Generate & Download Voting File</button>
+
+  <script>
+    const candidates = [];
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const previewGrid = document.getElementById('previewGrid');
+
+    ['dragenter', 'dragover'].forEach(name => dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.add('hover'); }));
+    ['dragleave', 'drop'].forEach(name => dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.remove('hover'); }));
+    
+    dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    function handleFiles(files) {
+      Array.from(files).forEach(file => {
+        if (!file.type.startsWith('image/')) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const compressedB64 = processAndCompressImage(img, 400, 0.7);
+            const defaultName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+            const item = { 
+              id: Date.now() + Math.random(), 
+              name: defaultName, 
+              b64: compressedB64 
+            };
+            candidates.push(item);
+            renderPreview(item);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function processAndCompressImage(img, maxDim, quality) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      const minSide = Math.min(img.width, img.height);
+      const sx = (img.width - minSide) / 2;
+      const sy = (img.height - minSide) / 2;
+
+      const targetSize = Math.min(minSide, maxDim);
+      canvas.width = targetSize;
+      canvas.height = targetSize;
+
+      ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, targetSize, targetSize);
+      return canvas.toDataURL('image/jpeg', quality);
+    }
+
+    function renderPreview(item) {
+      const card = document.createElement('div');
+      card.className = 'preview-card';
+      card.innerHTML = `
+        <img src="${item.b64}">
+        <input type="text" value="${item.name.replace(/"/g, '&quot;')}" oninput="updateName('${item.id}', this.value)" placeholder="Candidate name">
+      `;
+      previewGrid.appendChild(card);
+    }
+
+    function updateName(id, newName) {
+      const target = candidates.find(c => c.id == id);
+      if (target) target.name = newName;
+    }
+
+    function generateBallotFile() {
+      if (candidates.length === 0) return alert('Please add at least one image first!');
+      const contestTitle = document.getElementById('contestTitle').value.trim() || 'Beauty Contest';
+      const cleanFileName = contestTitle.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_ballot.html';
+
+      const template = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${contestTitle}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; background: #f4f4f9; }
+    .setup-box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .setup-box input, .setup-box select { width: 100%; padding: 8px; font-size: 14px; margin: 6px 0 14px 0; box-sizing: border-box; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .card { background: white; border: 2px solid #ccc; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: 0.2s; }
+    .card:hover { border-color: #007bff; transform: translateY(-2px); }
+    .card img { width: 100%; height: 140px; object-fit: cover; border-radius: 4px; }
+    .card.disabled { opacity: 0.3; pointer-events: none; border-color: #eee; }
+    #votingArea { display: none; }
+    #results-box { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 20px; }
+    ol { margin: 10px 0; padding-left: 20px; }
+    button { padding: 10px 20px; font-size: 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #218838; }
+  </style>
+</head>
+<body>
+
+  <h1>${contestTitle}</h1>
+
+  <div class="setup-box" id="voterSetup">
+    <label for="voterName"><strong>Your Name / Voter ID:</strong></label>
+    <input type="text" id="voterName" placeholder="Enter your name to start voting...">
+
+    <label for="excludeSelect"><strong>Are you a creator in this contest? Exclude your entry:</strong></label>
+    <select id="excludeSelect">
+      <option value="">-- None (I am only voting) --</option>
+      ${candidates.map(c => `<option value="${c.name.replace(/"/g, '&quot;')}">${c.name}</option>`).join('')}
+    </select>
+
+    <button onclick="startVoting()">Start Voting</button>
+  </div>
+
+  <div id="votingArea">
+    <h2>Click Candidates in Order of Rank (1st to Last)</h2>
+    <div class="grid" id="cardGrid">
+      ${candidates.map(c => `
+        <div class="card" data-name="${c.name.replace(/"/g, '&quot;')}" onclick="rankItem(this, '${c.name.replace(/'/g, "\\'")}')">
+          <img src="${c.b64}">
+          <p><strong>${c.name}</strong></p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div id="results-box">
+      <h3 id="rankingTitle">Your Ranking:</h3>
+      <ol id="rankingList"></ol>
+      <button onclick="copyToClipboard()">Copy Results to Clipboard</button>
+    </div>
+  </div>
+
+  <script>
+    let voterName = '';
+    let rankings = [];
+
+    function startVoting() {
+      const nameInput = document.getElementById('voterName').value.trim();
+      if (!nameInput) return alert('Please enter your name before starting.');
+      
+      voterName = nameInput;
+      const excludedCandidate = document.getElementById('excludeSelect').value;
+
+      if (excludedCandidate) {
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => {
+          if (card.getAttribute('data-name') === excludedCandidate) {
+            card.remove();
+          }
+        });
+      }
+
+      document.getElementById('voterSetup').style.display = 'none';
+      document.getElementById('votingArea').style.display = 'block';
+      document.getElementById('rankingTitle').textContent = voterName + "'s Ranking:";
+    }
+
+    function rankItem(cardElement, name) {
+      rankings.push(name);
+      const li = document.createElement('li');
+      li.textContent = name;
+      document.getElementById('rankingList').appendChild(li);
+      cardElement.classList.add('disabled');
+    }
+
+    function copyToClipboard() {
+      if (rankings.length === 0) return alert('Please rank at least one candidate first!');
+      
+      const payload = "VOTER: " + voterName + "\\n" +
+                      "CONTEST: ${contestTitle}\\n\\n" +
+                      rankings.join('\\n');
+
+      navigator.clipboard.writeText(payload).then(() => {
+        alert('Copied to clipboard!\\n\\n' + payload);
+      }).catch(() => {
+        alert('Failed to copy automatically. Here are your results:\\n\\n' + payload);
+      });
+    }
+  <\/script>
+</body>
+</html>`;
+
+      const blob = new Blob([template], { type: 'text/html' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = cleanFileName;
+      a.click();
+    }
+  </script>
+</body>
+</html>

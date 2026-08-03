@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VoteBuilder</title>
+    <link rel="stylesheet" href="./css/main.css" />
+    <link rel="stylesheet" href="./css/components.css" />
+    <link rel="stylesheet" href="./css/mobile.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="panel">
+        <h1>VoteBuilder</h1>
+        <p class="intro">Create a contest, upload images, and generate a standalone ballot for ranked choice, tier list, or pairwise voting.</p>
+
+        <div class="config-box">
+          <label for="contestTitle">Contest title</label>
+          <input id="contestTitle" type="text" value="Beauty Contest 2026" />
+
+          <label for="votingMode">Ballot mode</label>
+          <select id="votingMode">
+            <option value="ranked-choice">Ranked choice</option>
+            <option value="tier-list">Tier list</option>
+            <option value="pairwise">Pairwise</option>
+          </select>
+
+          <label for="sortMode">Ordering</label>
+          <select id="sortMode">
+            <option value="builder">As configured in builder</option>
+            <option value="alpha">Alphabetical</option>
+            <option value="random">Randomize on open</option>
+          </select>
+
+          <label class="checkbox-row">
+            <input id="enableExclusion" type="checkbox" />
+            Allow ballot users to exclude one candidate when they open the ballot
+          </label>
+        </div>
+
+        <div class="toolbar">
+          <button id="generateBtn" class="primary">Generate ballot</button>
+          <button id="autoCreateBtn" class="secondary">Batch add 1 candidate per image</button>
+          <button id="addCandidateBtn" class="secondary">+ Empty candidate slot</button>
+        </div>
+
+        <div class="drop-zone" id="dropZone">
+          <p>Drop photos here or click to browse</p>
+          <input id="fileInput" type="file" accept="image/*" multiple hidden />
+        </div>
+
+        <section class="pool-section">
+          <div class="section-heading">
+            <h2>Image pool</h2>
+            <span>Drag an image into a candidate card or the create zone</span>
+          </div>
+          <div id="imagePool" class="image-pool"></div>
+        </section>
+
+        <section class="pool-section">
+          <div class="section-heading">
+            <h2>Candidates</h2>
+            <span>Each card can hold one or more images</span>
+          </div>
+          <div id="createCandidateZone" class="create-candidate-zone">+ Drag an image here to create a new candidate</div>
+          <div id="candidatesList" class="candidate-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
