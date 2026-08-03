@@ -15,6 +15,10 @@ const refs = {
   enableExclusion: document.getElementById('enableExclusion'),
   promptForName: document.getElementById('promptForName'),
   includeVoterName: document.getElementById('includeVoterName'),
+  completionRuleMode: document.getElementById('completionRuleMode'),
+  completionRuleCount: document.getElementById('completionRuleCount'),
+  completionLabel: document.getElementById('completionLabel'),
+  ballotTheme: document.getElementById('ballotTheme'),
   dropZone: document.getElementById('dropZone'),
   fileInput: document.getElementById('fileInput'),
   imagePool: document.getElementById('imagePool'),
@@ -336,7 +340,10 @@ function generateBallot() {
     state.candidates,
     {
       promptForName: refs.promptForName?.checked ?? true,
-      includeVoterName: refs.includeVoterName?.checked ?? true
+      includeVoterName: refs.includeVoterName?.checked ?? true,
+      completionRule: buildCompletionRule(),
+      completionLabel: refs.completionLabel?.value?.trim() || 'Copy results',
+      ballotTheme: refs.ballotTheme?.value || 'default'
     }
   ));
 
@@ -359,6 +366,18 @@ function generateBallot() {
   anchor.download = `${contestTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'ballot'}.html`;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function buildCompletionRule() {
+  const mode = refs.completionRuleMode?.value || 'all-ranked';
+  if (mode === 'minimum-count' || mode === 'exact-count') {
+    return {
+      mode,
+      count: Number(refs.completionRuleCount?.value || 1)
+    };
+  }
+
+  return { mode };
 }
 
 function escapeHtml(value) {

@@ -13,7 +13,7 @@ The work is organized into iterative tickets. Each ticket is scoped so it can be
 ### Priority 0 — Foundation
 
 #### Ticket A1 — Define ballot completion model in the builder
-- Status: planned
+- Status: done
 - Priority: high
 - Complexity: medium
 - Depends on: none
@@ -25,7 +25,7 @@ The work is organized into iterative tickets. Each ticket is scoped so it can be
 - Why first: The completion rule and action label are foundational for the rest of the flow. Most other UI work depends on having a known completion state.
 
 #### Ticket A2 — Expose completion state to the ballot runtime
-- Status: planned
+- Status: done
 - Priority: high
 - Complexity: medium
 - Depends on: A1
@@ -39,7 +39,7 @@ The work is organized into iterative tickets. Each ticket is scoped so it can be
 ### Priority 1 — Core ballot interaction
 
 #### Ticket B1 — Replace the current ranking controls with drag-first interaction
-- Status: planned
+- Status: done
 - Priority: high
 - Complexity: medium
 - Depends on: A2
@@ -51,7 +51,7 @@ The work is organized into iterative tickets. Each ticket is scoped so it can be
 - Why now: This is the core interaction change and should be implemented before more polish is added.
 
 #### Ticket B2 — Support removing ranked entries by dragging outside the list
-- Status: planned
+- Status: done
 - Priority: high
 - Complexity: medium
 - Depends on: B1
@@ -63,7 +63,7 @@ The work is organized into iterative tickets. Each ticket is scoped so it can be
 - Why now: Removal is part of the core ranking workflow and should be implemented alongside reordering.
 
 #### Ticket B3 — Support adding ranked entries by dragging from the card grid
-- Status: planned
+- Status: done
 - Priority: high
 - Complexity: medium
 - Depends on: B1
@@ -77,7 +77,7 @@ The work is organized into iterative tickets. Each ticket is scoped so it can be
 ### Priority 2 — Ballot UI refinement
 
 #### Ticket C1 — Rework the top action bar
-- Status: planned
+- Status: done
 - Priority: medium
 - Complexity: medium
 - Depends on: A2, B1
@@ -90,7 +90,7 @@ The work is organized into iterative tickets. Each ticket is scoped so it can be
 - Why here: This builds on the new completion state and improves the ballot’s main navigation area.
 
 #### Ticket C2 — Improve visual feedback and readability
-- Status: planned
+- Status: done
 - Priority: medium
 - Complexity: medium
 - Depends on: C1
@@ -102,7 +102,7 @@ The work is organized into iterative tickets. Each ticket is scoped so it can be
 - Why here: This is polish and should follow the structural changes.
 
 #### Ticket C3 — Add completion-threshold auto-scroll
-- Status: planned
+- Status: done
 - Priority: medium
 - Complexity: low
 - Depends on: A2, C1
@@ -116,7 +116,7 @@ The work is organized into iterative tickets. Each ticket is scoped so it can be
 ### Priority 3 — Mobile and polish
 
 #### Ticket D1 — Improve touch interaction and drag affordance
-- Status: planned
+- Status: done
 - Priority: medium
 - Complexity: medium
 - Depends on: B1, B2, B3
@@ -128,7 +128,7 @@ The work is organized into iterative tickets. Each ticket is scoped so it can be
 - Why later: This is important, but it is best implemented after the core drag interactions are working.
 
 #### Ticket D2 — Add lightweight ballot theming
-- Status: planned
+- Status: done
 - Priority: low
 - Complexity: medium
 - Depends on: A1, C1
@@ -138,6 +138,59 @@ The work is organized into iterative tickets. Each ticket is scoped so it can be
   - Apply the selected theme in the generated ballot UI.
   - Keep the options lightweight and focused on clarity and contrast.
 - Why later: Theming is valuable but not required for core interaction correctness.
+
+### Priority 4 — Testability and regression
+
+The testability work is now implemented and verified through the latest build-and-test pass.
+
+#### Ticket E1 — Cover builder payload wiring for new ballot settings
+- Status: done
+- Priority: high
+- Complexity: medium
+- Depends on: A1, A2, D2
+- Description: Add regression tests for the builder payload contract covering completion rules, completion labels, name-prompt toggles, include-name toggling, and ballot theme selection.
+- Scope:
+  - Verify the payload includes the expected completion-rule object and label.
+  - Verify the optional name settings are serialized correctly.
+  - Verify the selected theme is preserved in the generated ballot payload.
+- Why now: The builder-side configuration is now part of the runtime contract and should be locked down.
+
+#### Ticket E2 — Cover ranked-choice runtime interaction flows
+- Status: done
+- Priority: high
+- Complexity: medium
+- Depends on: B1, B2, B3, C3
+- Description: Add regression tests for the ranked-choice ballot runtime covering drag-to-add, drag-to-remove, reorder behavior, completion-state enablement, and the one-time auto-scroll behavior.
+- Scope:
+  - Verify candidates can be added to the ranking by dragging from the card grid.
+  - Verify ranked entries can be removed by dropping outside the list.
+  - Verify the completion action disables and enables correctly per completion rule.
+  - Verify auto-scroll triggers only once when the threshold is first reached.
+- Why now: These are the core user interactions introduced in the recent UX work and are the most likely to regress.
+
+#### Ticket E3 — Cover ballot setup and accessibility behaviors
+- Status: done
+- Priority: medium
+- Complexity: medium
+- Depends on: A1, A2, D1
+- Description: Add tests around setup-screen behavior and accessibility affordances for the newer ranked-choice flow.
+- Scope:
+  - Verify the name prompt is shown or hidden based on the builder option.
+  - Verify exclusion input behavior remains correct when no entry is selected.
+  - Verify the drag handle is present and exposes a meaningful accessible label.
+  - Verify completion and restart controls remain operable in keyboard-driven flows.
+- Why now: The newer flow introduced more conditional UI and touch-first affordances that should be resilient to regressions.
+
+#### Ticket E4 — Cover generated ballot integration end to end
+- Status: done
+- Priority: medium
+- Complexity: medium
+- Depends on: A1, A2, D2
+- Description: Add a lightweight end-to-end or integration-style test around the generated ballot HTML to ensure the builder payload and runtime template stay in sync.
+- Scope:
+  - Verify the generated HTML contains the expected runtime wiring for the selected completion rule, label, and theme.
+  - Verify the generated ballot still mounts and initializes correctly with the builder payload.
+- Why now: Many recent changes span the builder, payload serialization, and generated runtime bundle, so this is the best guardrail against integration drift.
 
 ## UX principles
 

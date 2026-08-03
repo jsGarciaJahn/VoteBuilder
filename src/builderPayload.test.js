@@ -39,6 +39,24 @@ describe('buildBallotObject', () => {
     expect(ballot.includeVoterName).toBe(false);
   });
 
+  it('includes the ballot theme in the payload', () => {
+    const ballot = buildBallotObject('Contest', 'ranked-choice', 'builder', true, sampleCandidates, {
+      ballotTheme: 'contrast'
+    });
+
+    expect(ballot.ballotTheme).toBe('contrast');
+  });
+
+  it('includes the completion rule and label in the payload', () => {
+    const ballot = buildBallotObject('Contest', 'ranked-choice', 'builder', true, sampleCandidates, {
+      completionRule: { mode: 'minimum-count', count: 2 },
+      completionLabel: 'Submit'
+    });
+
+    expect(ballot.completionRule).toEqual({ mode: 'minimum-count', count: 2 });
+    expect(ballot.completionLabel).toBe('Submit');
+  });
+
   it('preserves builder order when random sort mode is requested', () => {
     const ballot = buildBallotObject('Contest', 'ranked-choice', 'random', false, [
       { id: '1', name: 'Banana', description: '', images: [{ b64: 'data:image/jpeg;base64,AAA' }] },

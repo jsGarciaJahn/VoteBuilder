@@ -46,6 +46,27 @@
             <input id="includeVoterName" type="checkbox" checked />
             Include the voter name in the copied ballot payload
           </label>
+
+          <label for="completionRuleMode">Completion rule</label>
+          <select id="completionRuleMode">
+            <option value="all-ranked">Require all ranked entries</option>
+            <option value="at-least-one">Require at least one ranked entry</option>
+            <option value="minimum-count">Require a minimum number of ranked entries</option>
+            <option value="exact-count">Require an exact number of ranked entries</option>
+          </select>
+
+          <label for="completionRuleCount">Required ranked count</label>
+          <input id="completionRuleCount" type="number" min="1" value="1" />
+
+          <label for="completionLabel">Completion button label</label>
+          <input id="completionLabel" type="text" value="Copy results" />
+
+          <label for="ballotTheme">Ballot theme</label>
+          <select id="ballotTheme">
+            <option value="default">Default</option>
+            <option value="modern">Modern</option>
+            <option value="contrast">High contrast</option>
+          </select>
         </div>
 
         <div class="toolbar">

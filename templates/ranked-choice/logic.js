@@ -3,6 +3,9 @@ const candidates = ballotData.candidates || [];
 const allowExclusion = ballotData.allowExclusion === true;
 const promptForName = ballotData.promptForName !== false;
 const includeVoterName = ballotData.includeVoterName !== false;
+const completionRule = ballotData.completionRule || { mode: 'all-ranked' };
+const completionLabel = ballotData.completionLabel || 'Copy results';
+const ballotTheme = ballotData.ballotTheme || 'default';
 const sortMode = ballotData.sortMode || 'builder';
 let activeCandidates = [];
 let rankings = [];
@@ -59,6 +62,28 @@ function populateExcludeOptions() {
   });
 }
 
+function isCompletionSatisfied() {
+  const rankingCount = rankings.length;
+  if (completionRule.mode === 'at-least-one') {
+    return rankingCount >= 1;
+  }
+  if (completionRule.mode === 'minimum-count') {
+    return rankingCount >= (completionRule.count || 1);
+  }
+  if (completionRule.mode === 'exact-count') {
+    return rankingCount === (completionRule.count || 1);
+  }
+  return rankingCount === activeCandidates.length;
+}
+
+function updateCompletionState() {
+  const completionButton = document.getElementById('copyBtn');
+  if (!completionButton) return;
+  completionButton.disabled = !isCompletionSatisfied();
+  completionButton.textContent = completionLabel;
+  completionButton.classList.toggle('action-btn-complete', true);
+}
+
 function renderGrid() {
   cardGrid.innerHTML = '';
   activeCandidates.forEach((candidate) => {
@@ -76,7 +101,17 @@ function renderGrid() {
       <p>${escapeHtml(candidate.description || '')}</p>
       ${rankedIndex !== -1 ? `<div class="rank-pill">Ranked #${rankedIndex + 1}</div>` : ''}
     `;
+    card.draggable = true;
     card.addEventListener('click', () => rankCandidate(candidate.id));
+    card.addEventListener('dragstart', (event) => {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', candidate.id);
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      cardGrid.querySelectorAll('.card').forEach((entry) => entry.classList.remove('drag-over'));
+    });
     cardGrid.appendChild(card);
   });
 }
@@ -124,32 +159,13 @@ function renderRanking() {
     left.className = 'ranking-item-left';
     left.textContent = `${index + 1}. ${candidate.name}`;
 
-    const controls = document.createElement('div');
-    controls.className = 'ranking-controls';
+    const dragHandle = document.createElement('span');
+    dragHandle.className = 'drag-handle';
+    dragHandle.textContent = '⋮⋮';
+    dragHandle.setAttribute('aria-label', 'Drag to reorder');
 
-    const upButton = document.createElement('button');
-    upButton.className = 'btn-mini';
-    upButton.textContent = '▲';
-    upButton.disabled = index === 0;
-    upButton.addEventListener('click', () => moveRankItem(index, -1));
-
-    const downButton = document.createElement('button');
-    downButton.className = 'btn-mini';
-    downButton.textContent = '▼';
-    downButton.disabled = index === rankings.length - 1;
-    downButton.addEventListener('click', () => moveRankItem(index, 1));
-
-    const removeButton = document.createElement('button');
-    removeButton.className = 'btn-mini';
-    removeButton.textContent = '✕';
-    removeButton.addEventListener('click', () => removeRankItem(candidateId));
-
-    controls.appendChild(upButton);
-    controls.appendChild(downButton);
-    controls.appendChild(removeButton);
-
+    item.appendChild(dragHandle);
     item.appendChild(left);
-    item.appendChild(controls);
     rankingList.appendChild(item);
   });
 }
@@ -160,12 +176,18 @@ function rankCandidate(candidateId) {
   rankings.push(candidateId);
   renderRanking();
   renderGrid();
+  updateCompletionState();
+  maybeScrollToRankingSummary();
 }
 
 function removeRankItem(candidateId) {
   rankings = rankings.filter((id) => id !== candidateId);
   renderRanking();
   renderGrid();
+  updateCompletionState();
+  if (!rankings.length) {
+    window.__rankedChoiceAutoScrollTriggered = false;
+  }
 }
 
 function moveRankItem(index, direction) {
@@ -175,6 +197,7 @@ function moveRankItem(index, direction) {
   rankings[index] = rankings[targetIndex];
   rankings[targetIndex] = temp;
   renderRanking();
+  updateCompletionState();
 }
 
 function moveRankItemById(draggedId, targetId) {
@@ -186,18 +209,34 @@ function moveRankItemById(draggedId, targetId) {
   rankings.splice(insertAt, 0, draggedId);
   renderRanking();
   renderGrid();
+  updateCompletionState();
 }
 
 function undoRank() {
   rankings.pop();
   renderRanking();
   renderGrid();
+  updateCompletionState();
+  if (!rankings.length) {
+    window.__rankedChoiceAutoScrollTriggered = false;
+  }
 }
 
 function restartRanking() {
   rankings = [];
   renderRanking();
   renderGrid();
+  updateCompletionState();
+  window.__rankedChoiceAutoScrollTriggered = false;
+}
+
+function applyBallotTheme() {
+  document.body.classList.remove('theme-modern', 'theme-contrast');
+  if (ballotTheme === 'modern') {
+    document.body.classList.add('theme-modern');
+  } else if (ballotTheme === 'contrast') {
+    document.body.classList.add('theme-contrast');
+  }
 }
 
 function startVoting() {
@@ -216,12 +255,27 @@ function startVoting() {
   populateExcludeOptions();
   renderGrid();
   renderRanking();
+  updateCompletionState();
+}
+
+function maybeScrollToRankingSummary() {
+  if (!isCompletionSatisfied() || rankings.length === 0) return;
+  if (window.__rankedChoiceAutoScrollTriggered) return;
+  window.__rankedChoiceAutoScrollTriggered = true;
+  const rankingSummary = document.querySelector('h3');
+  if (rankingSummary && typeof rankingSummary.scrollIntoView === 'function') {
+    rankingSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 document.getElementById('startBtn').addEventListener('click', startVoting);
 document.getElementById('undoBtn').addEventListener('click', undoRank);
 document.getElementById('restartBtn').addEventListener('click', restartRanking);
 document.getElementById('copyBtn').addEventListener('click', async () => {
+  if (!isCompletionSatisfied()) {
+    alert('The current ranking does not satisfy the configured completion rule.');
+    return;
+  }
   if (!rankings.length) {
     alert('Rank at least one candidate before copying.');
     return;
@@ -234,11 +288,30 @@ document.getElementById('copyBtn').addEventListener('click', async () => {
   await copyPayload(payload);
 });
 
-rankingList.addEventListener('dragover', (event) => event.preventDefault());
+rankingList.addEventListener('dragover', (event) => {
+  event.preventDefault();
+  rankingList.classList.add('drag-over');
+});
+rankingList.addEventListener('dragleave', () => {
+  rankingList.classList.remove('drag-over');
+});
 rankingList.addEventListener('drop', (event) => {
   event.preventDefault();
+  rankingList.classList.remove('drag-over');
   const draggedId = event.dataTransfer.getData('text/plain');
   if (!draggedId || rankings.includes(draggedId)) return;
+  rankCandidate(draggedId);
+});
+
+document.addEventListener('drop', (event) => {
+  const draggedId = event.dataTransfer?.getData('text/plain');
+  if (!draggedId || !rankings.includes(draggedId)) return;
+  if (event.target instanceof Element && event.target.closest('#rankingList')) return;
+  removeRankItem(draggedId);
+});
+
+document.addEventListener('dragover', (event) => {
+  event.preventDefault();
 });
 
 unrankZone.addEventListener('dragover', (event) => {
@@ -257,9 +330,16 @@ unrankZone.addEventListener('drop', (event) => {
   }
 });
 
-cardGrid.addEventListener('dragover', (event) => event.preventDefault());
+cardGrid.addEventListener('dragover', (event) => {
+  event.preventDefault();
+  cardGrid.classList.add('drag-over');
+});
+cardGrid.addEventListener('dragleave', () => {
+  cardGrid.classList.remove('drag-over');
+});
 cardGrid.addEventListener('drop', (event) => {
   event.preventDefault();
+  cardGrid.classList.remove('drag-over');
   const draggedId = event.dataTransfer.getData('text/plain');
   if (draggedId) {
     removeRankItem(draggedId);
@@ -270,6 +350,8 @@ if (namePrompt) {
   namePrompt.hidden = !promptForName;
 }
 
+applyBallotTheme();
 activeCandidates = getDisplayCandidates(candidates);
 populateExcludeOptions();
 renderGrid();
+updateCompletionState();

@@ -21,16 +21,16 @@
           <button id="startBtn">Start ranking</button>
         </div>
         <div id="ballot" hidden>
-          <h2>Rank candidates from most preferred to least preferred</h2>
           <div class="rank-actions">
-            <button id="undoBtn">Undo last pick</button>
-            <button id="restartBtn">Restart ranking</button>
+            <button id="undoBtn" class="action-btn action-btn-undo">↺ Undo</button>
+            <button id="restartBtn" class="action-btn action-btn-restart">↺ Restart</button>
+            <button id="copyBtn" class="action-btn action-btn-complete">Copy results</button>
           </div>
+          <h2>Rank candidates from most preferred to least preferred</h2>
           <div class="grid" id="cardGrid"></div>
           <h3>Your ranking</h3>
           <ol class="ranking-list" id="rankingList"></ol>
           <div id="unrankZone" class="remove-drop-zone">Drag here to remove a ranking and make the candidate eligible again</div>
-          <button id="copyBtn">Copy results</button>
         </div>
       </div>
     </main>
