@@ -4,6 +4,7 @@ const allowExclusion = ballotData.allowExclusion === true;
 const promptForName = ballotData.promptForName !== false;
 const includeVoterName = ballotData.includeVoterName !== false;
 const completionLabel = ballotData.completionLabel || VOTE_BUILDER_DEFAULTS?.builder?.completionLabel || 'Copy results';
+const outputSettings = normalizeOutputSettings(ballotData.outputSettings || {}, VOTE_BUILDER_DEFAULTS?.builder?.outputSettings || {});
 const ballotTheme = normalizeBallotTheme(ballotData.ballotTheme || VOTE_BUILDER_DEFAULTS?.builder?.ballotTheme || 'default');
 const candidateCardStyle = applyCandidateCardStyle(ballotData.candidateCardStyle || VOTE_BUILDER_DEFAULTS?.builder?.candidateCardStyle || {});
 const bannerImage = ballotData.bannerImage || '';
@@ -115,6 +116,13 @@ function isVotingComplete() {
 }
 
 function getResultRankingIds() {
+  if (typeof getStrategyRankingIds === 'function') {
+    const strategyRanking = getStrategyRankingIds(strategyState, activeCandidates);
+    if (Array.isArray(strategyRanking) && strategyRanking.length === activeCandidates.length) {
+      return strategyRanking;
+    }
+  }
+
   const wins = new Map(activeCandidates.map((candidate) => [candidate.id, 0]));
   rankings.forEach((winnerId) => {
     wins.set(winnerId, (wins.get(winnerId) || 0) + 1);
@@ -287,12 +295,13 @@ async function handleSubmit() {
     return;
   }
 
-  const payload = collectPayload(
-    includeVoterName ? voterName : '',
+  await deliverBallotOutput({
+    outputSettings,
+    fallbackOutputSettings: VOTE_BUILDER_DEFAULTS?.builder?.outputSettings || {},
+    voterName: includeVoterName ? voterName : '',
     contestTitle,
-    finalRankingIds.map((id) => activeCandidates.find((candidate) => candidate.id === id)?.name || '')
-  );
-  await copyPayload(payload);
+    rankings: finalRankingIds.map((id) => activeCandidates.find((candidate) => candidate.id === id)?.name || '')
+  });
 }
 
 if (namePrompt) {

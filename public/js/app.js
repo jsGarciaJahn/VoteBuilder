@@ -31,7 +31,16 @@ async function loadDefaults() {
         { label: 'C', color: '#fb7185' },
         { label: 'D', color: '#f472b6' }
       ],
-      useImageNameForCandidateTitle: true
+      useImageNameForCandidateTitle: true,
+      outputSettings: {
+        deliveryMethod: 'clipboard',
+        contentFormat: 'plain-text',
+        fileNameBase: 'ballot_results',
+        csvDelimiter: 'comma',
+        mailtoTo: '',
+        mailtoSubject: 'Ballot results',
+        mailtoBodyPrefix: ''
+      }
     }
   };
 
@@ -74,6 +83,18 @@ const CANDIDATE_CARD_STYLE_DEFAULTS = {
   cycleVarianceMs: 900,
   imageHeightPx: 150
 };
+const OUTPUT_SETTINGS_DEFAULTS = {
+  deliveryMethod: 'clipboard',
+  contentFormat: 'plain-text',
+  fileNameBase: 'ballot_results',
+  csvDelimiter: 'comma',
+  mailtoTo: '',
+  mailtoSubject: 'Ballot results',
+  mailtoBodyPrefix: ''
+};
+const OUTPUT_DELIVERY_METHODS = new Set(['clipboard', 'download', 'mailto']);
+const OUTPUT_CONTENT_FORMATS = new Set(['plain-text', 'json', 'csv']);
+const OUTPUT_CSV_DELIMITER_OPTIONS = new Set(['comma', 'semicolon', 'tab']);
 const CANDIDATE_CARD_VARIANTS = new Set(['default', 'compact', 'poster', 'minimal']);
 const BALLOT_SIZE_LIMIT_BYTES = 2 * 1024 * 1024;
 const WORKSPACE_STORAGE_KEY = 'voteBuilder.builderWorkspace.v1';
@@ -88,6 +109,85 @@ function normalizeNumberInRange(rawValue, fallback, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function normalizeOutputSettings(rawSettings = {}, fallbackSettings = {}) {
+  const fallback = {
+    ...OUTPUT_SETTINGS_DEFAULTS,
+    ...(fallbackSettings || {})
+  };
+
+  const deliveryKey = normalizeKey(rawSettings?.deliveryMethod || fallback.deliveryMethod || OUTPUT_SETTINGS_DEFAULTS.deliveryMethod);
+  const formatKey = normalizeKey(rawSettings?.contentFormat || fallback.contentFormat || OUTPUT_SETTINGS_DEFAULTS.contentFormat);
+  const delimiterKey = normalizeKey(rawSettings?.csvDelimiter || fallback.csvDelimiter || OUTPUT_SETTINGS_DEFAULTS.csvDelimiter);
+
+  return {
+    deliveryMethod: OUTPUT_DELIVERY_METHODS.has(deliveryKey) ? deliveryKey : OUTPUT_SETTINGS_DEFAULTS.deliveryMethod,
+    contentFormat: OUTPUT_CONTENT_FORMATS.has(formatKey) ? formatKey : OUTPUT_SETTINGS_DEFAULTS.contentFormat,
+    fileNameBase: String(rawSettings?.fileNameBase ?? fallback.fileNameBase ?? OUTPUT_SETTINGS_DEFAULTS.fileNameBase).trim() || OUTPUT_SETTINGS_DEFAULTS.fileNameBase,
+    csvDelimiter: OUTPUT_CSV_DELIMITER_OPTIONS.has(delimiterKey) ? delimiterKey : OUTPUT_SETTINGS_DEFAULTS.csvDelimiter,
+    mailtoTo: String(rawSettings?.mailtoTo ?? fallback.mailtoTo ?? OUTPUT_SETTINGS_DEFAULTS.mailtoTo).trim(),
+    mailtoSubject: String(rawSettings?.mailtoSubject ?? fallback.mailtoSubject ?? OUTPUT_SETTINGS_DEFAULTS.mailtoSubject).trim() || OUTPUT_SETTINGS_DEFAULTS.mailtoSubject,
+    mailtoBodyPrefix: String(rawSettings?.mailtoBodyPrefix ?? fallback.mailtoBodyPrefix ?? OUTPUT_SETTINGS_DEFAULTS.mailtoBodyPrefix)
+  };
+}
+
+function readOutputSettingsFromControls() {
+  return normalizeOutputSettings({
+    deliveryMethod: refs.outputDeliveryMethod?.value,
+    contentFormat: refs.outputContentFormat?.value,
+    fileNameBase: refs.outputFileNameBase?.value,
+    csvDelimiter: refs.outputCsvDelimiter?.value,
+    mailtoTo: refs.outputMailtoTo?.value,
+    mailtoSubject: refs.outputMailtoSubject?.value,
+    mailtoBodyPrefix: refs.outputMailtoBodyPrefix?.value
+  }, builderDefaults.outputSettings || OUTPUT_SETTINGS_DEFAULTS);
+}
+
+function writeOutputSettingsToControls(rawSettings) {
+  const settings = normalizeOutputSettings(rawSettings, builderDefaults.outputSettings || OUTPUT_SETTINGS_DEFAULTS);
+  if (refs.outputDeliveryMethod) {
+    refs.outputDeliveryMethod.value = pickSelectValue(refs.outputDeliveryMethod, settings.deliveryMethod, OUTPUT_SETTINGS_DEFAULTS.deliveryMethod);
+  }
+  if (refs.outputContentFormat) {
+    refs.outputContentFormat.value = pickSelectValue(refs.outputContentFormat, settings.contentFormat, OUTPUT_SETTINGS_DEFAULTS.contentFormat);
+  }
+  if (refs.outputFileNameBase) {
+    refs.outputFileNameBase.value = settings.fileNameBase;
+  }
+  if (refs.outputCsvDelimiter) {
+    refs.outputCsvDelimiter.value = pickSelectValue(refs.outputCsvDelimiter, settings.csvDelimiter, OUTPUT_SETTINGS_DEFAULTS.csvDelimiter);
+  }
+  if (refs.outputMailtoTo) {
+    refs.outputMailtoTo.value = settings.mailtoTo;
+  }
+  if (refs.outputMailtoSubject) {
+    refs.outputMailtoSubject.value = settings.mailtoSubject;
+  }
+  if (refs.outputMailtoBodyPrefix) {
+    refs.outputMailtoBodyPrefix.value = settings.mailtoBodyPrefix;
+  }
+  updateOutputSettingsVisibility();
+}
+
+function updateOutputSettingsVisibility() {
+  const settings = readOutputSettingsFromControls();
+  if (refs.outputDownloadFileNameRow) {
+    refs.outputDownloadFileNameRow.hidden = settings.deliveryMethod !== 'download';
+  }
+  if (refs.outputCsvDelimiterRow) {
+    refs.outputCsvDelimiterRow.hidden = settings.contentFormat !== 'csv';
+  }
+  const mailtoVisible = settings.deliveryMethod === 'mailto';
+  if (refs.outputMailtoToRow) {
+    refs.outputMailtoToRow.hidden = !mailtoVisible;
+  }
+  if (refs.outputMailtoSubjectRow) {
+    refs.outputMailtoSubjectRow.hidden = !mailtoVisible;
+  }
+  if (refs.outputMailtoBodyPrefixRow) {
+    refs.outputMailtoBodyPrefixRow.hidden = !mailtoVisible;
+  }
+}
+
 function formatBallotSize(bytes) {
   const value = Math.max(0, Number(bytes) || 0);
   if (value >= 1024 * 1024) {
@@ -96,17 +196,74 @@ function formatBallotSize(bytes) {
   return `${Math.max(1, Math.round(value / 1024))} KB`;
 }
 
-function updateBallotSizeMeter(ballotHtml) {
+function computePackagedBallotSizeBytes() {
+  const contestTitle = refs.contestTitle?.value?.trim() || builderDefaults.contestTitle || 'Contest';
+  const mode = refs.votingMode?.value || builderDefaults.mode || 'ranked-choice';
+  const sortMode = refs.sortMode?.value || 'builder';
+  const selectedTheme = getThemeDefinitionById(refs.ballotTheme?.value || builderDefaults.ballotTheme || 'default');
+  state.candidateCardStyle = readCandidateCardStyleFromControls();
+  state.outputSettings = readOutputSettingsFromControls();
+
+  const asset = templateAssets[mode];
+  if (!asset) return 0;
+
+  const ballotData = JSON.stringify(buildBallotObject(
+    contestTitle,
+    mode,
+    sortMode,
+    refs.enableExclusion?.checked === true,
+    state.candidates,
+    {
+      promptForName: refs.promptForName?.checked ?? true,
+      includeVoterName: refs.promptForName?.checked ?? true,
+      pairwiseAlgorithm: refs.pairwiseAlgorithm?.value || builderDefaults.pairwiseAlgorithm || 'winner-stays',
+      tiers: getTiers(),
+      completionRule: buildCompletionRule(),
+      completionLabel: refs.completionLabel?.value?.trim() || builderDefaults.completionLabel || 'Copy results',
+      ballotTheme: selectedTheme.id,
+      candidateCardStyle: state.candidateCardStyle,
+      outputSettings: state.outputSettings,
+      bannerImage: state.bannerImage || '',
+      footerBrandText: state.footerBrandText || BRAND_FOOTER_TEXT,
+      footerBrandLogo: state.footerBrandLogo || ''
+    },
+    builderDefaults
+  ));
+
+  let runtimeScript = asset.js;
+  let runtimeCss = asset.css;
+  if (selectedTheme.cssText) {
+    runtimeCss = `${runtimeCss}\n\n/* Theme: ${selectedTheme.id} */\n${selectedTheme.cssText}`;
+  }
+
+  if (mode === 'pairwise') {
+    const selectedAlgorithm = refs.pairwiseAlgorithm?.value || builderDefaults.pairwiseAlgorithm || 'winner-stays';
+    const strategyImplementation = pairwiseStrategyImplementations[selectedAlgorithm]
+      || pairwiseStrategyImplementations['winner-stays']
+      || '';
+    runtimeScript = runtimeScript.replace('/*__PAIRWISE_STRATEGY_IMPLEMENTATION__*/', strategyImplementation);
+  }
+
+  const htmlShell = asset.html
+    .replaceAll('{{TITLE}}', escapeHtml(contestTitle))
+    .replaceAll('{{DATA}}', '')
+    .replaceAll('{{CSS}}', '')
+    .replaceAll('{{JS}}', '');
+
+  return new Blob([htmlShell, ballotData, runtimeCss, runtimeScript]).size;
+}
+
+function updateBallotSizeMeter(ballotBytes) {
   if (!refs.ballotSizeFill || !refs.ballotSizeLabel || !refs.ballotSizeMeter) return;
 
-  if (typeof ballotHtml !== 'string' || !ballotHtml.length) {
+  const bytes = Number(ballotBytes);
+  if (!Number.isFinite(bytes) || bytes <= 0) {
     refs.ballotSizeLabel.textContent = '0 KB / 2 MB';
     refs.ballotSizeFill.style.width = '0%';
     refs.ballotSizeMeter.classList.remove('is-warning', 'is-danger');
     return;
   }
 
-  const bytes = new Blob([ballotHtml]).size;
   const percent = Math.min(100, (bytes / BALLOT_SIZE_LIMIT_BYTES) * 100);
   refs.ballotSizeLabel.textContent = `${formatBallotSize(bytes)} / 2 MB`;
   refs.ballotSizeFill.style.width = `${percent}%`;
@@ -153,12 +310,18 @@ function closeFileMenu() {
   }
 }
 
-function handleDocumentPointerDown(event) {
+function handleDocumentClick(event) {
   if (!refs.fileMenu?.open) return;
   const target = event.target;
   if (!(target instanceof Node)) return;
   if (refs.fileMenu.contains(target)) return;
   closeFileMenu();
+}
+
+function handleDocumentKeydown(event) {
+  if (event.key === 'Escape') {
+    closeFileMenu();
+  }
 }
 
 function slugifyFileName(value) {
@@ -430,6 +593,10 @@ function applyWorkspaceSnapshot(snapshot) {
     if (refs.completionLabel && Object.prototype.hasOwnProperty.call(builder, 'completionLabel')) {
       refs.completionLabel.value = String(builder.completionLabel || 'Copy results');
     }
+    if (Object.prototype.hasOwnProperty.call(builder, 'outputSettings')) {
+      state.outputSettings = normalizeOutputSettings(builder.outputSettings || {}, builderDefaults.outputSettings || OUTPUT_SETTINGS_DEFAULTS);
+      writeOutputSettingsToControls(state.outputSettings);
+    }
     if (refs.ballotTheme && Object.prototype.hasOwnProperty.call(builder, 'ballotTheme')) {
       refs.ballotTheme.value = pickSelectValue(refs.ballotTheme, normalizeBallotTheme(builder.ballotTheme || 'default'), 'default');
     }
@@ -568,6 +735,7 @@ const state = {
   bannerImage: '',
   footerBrandText: BRAND_FOOTER_TEXT,
   footerBrandLogo: '',
+  outputSettings: normalizeOutputSettings(builderDefaults.outputSettings || OUTPUT_SETTINGS_DEFAULTS),
   workspaceFileName: '',
   workspaceFileHandle: null,
   candidateCardStyle: { ...CANDIDATE_CARD_STYLE_DEFAULTS }
@@ -590,6 +758,18 @@ const refs = {
   completionLabel: document.getElementById('completionLabel'),
   completionLabelRow: document.getElementById('completionLabelRow'),
   completionOptions: document.getElementById('completionOptions'),
+  outputDeliveryMethod: document.getElementById('outputDeliveryMethod'),
+  outputContentFormat: document.getElementById('outputContentFormat'),
+  outputFileNameBase: document.getElementById('outputFileNameBase'),
+  outputCsvDelimiter: document.getElementById('outputCsvDelimiter'),
+  outputMailtoTo: document.getElementById('outputMailtoTo'),
+  outputMailtoSubject: document.getElementById('outputMailtoSubject'),
+  outputMailtoBodyPrefix: document.getElementById('outputMailtoBodyPrefix'),
+  outputDownloadFileNameRow: document.getElementById('outputDownloadFileNameRow'),
+  outputCsvDelimiterRow: document.getElementById('outputCsvDelimiterRow'),
+  outputMailtoToRow: document.getElementById('outputMailtoToRow'),
+  outputMailtoSubjectRow: document.getElementById('outputMailtoSubjectRow'),
+  outputMailtoBodyPrefixRow: document.getElementById('outputMailtoBodyPrefixRow'),
   ballotTheme: document.getElementById('ballotTheme'),
   candidateCardVariant: document.getElementById('candidateCardVariant'),
   candidateCardCycleSeconds: document.getElementById('candidateCardCycleSeconds'),
@@ -795,6 +975,8 @@ function applyBuilderDefaults() {
   }
   if (refs.completionRuleCount) refs.completionRuleCount.value = String(builderDefaults.completionRuleCount || 1);
   if (refs.completionLabel) refs.completionLabel.value = builderDefaults.completionLabel || 'Copy results';
+  state.outputSettings = normalizeOutputSettings(builderDefaults.outputSettings || OUTPUT_SETTINGS_DEFAULTS);
+  writeOutputSettingsToControls(state.outputSettings);
   if (refs.ballotTheme) {
     const normalizedTheme = normalizeBallotTheme(builderDefaults.ballotTheme || 'default');
     refs.ballotTheme.value = pickSelectValue(refs.ballotTheme, normalizedTheme, 'default');
@@ -846,6 +1028,8 @@ refs.workspaceFileInput?.addEventListener('change', (event) => {
   const file = event.target.files?.[0];
   loadWorkspaceProjectFile(file);
 });
+refs.outputDeliveryMethod?.addEventListener('change', updateOutputSettingsVisibility);
+refs.outputContentFormat?.addEventListener('change', updateOutputSettingsVisibility);
 refs.useImageNameForCandidateTitle?.addEventListener('change', () => {
   state.defaultCandidateTitleSource = refs.useImageNameForCandidateTitle.checked ? 'image-name' : 'blank';
   syncPreview();
@@ -882,7 +1066,8 @@ refs.previewMobileToggle?.addEventListener('change', () => {
   applyPreviewViewportMode();
   syncPreview();
 });
-document.addEventListener('pointerdown', handleDocumentPointerDown, true);
+document.addEventListener('click', handleDocumentClick);
+document.addEventListener('keydown', handleDocumentKeydown);
 
 initializeBuilderConfigUi({
   modeSelect: refs.votingMode,
@@ -1180,8 +1365,9 @@ function autoCreateCandidates() {
 
 function syncPreview() {
   applyBuilderTheme();
+  const packagedBytes = computePackagedBallotSizeBytes();
   const html = buildBallotHtml();
-  updateBallotSizeMeter(html);
+  updateBallotSizeMeter(packagedBytes);
   if (refs.previewFrame) {
     renderPreview(html);
   }
@@ -1196,7 +1382,7 @@ function applyPreviewViewportMode() {
 }
 
 function attachStateListeners() {
-  [refs.contestTitle, refs.votingMode, refs.sortMode, refs.pairwiseAlgorithm, refs.enableExclusion, refs.promptForName, refs.completionRuleMode, refs.completionRuleCount, refs.completionLabel, refs.ballotTheme, refs.candidateCardVariant, refs.candidateCardCycleSeconds, refs.candidateCardSwipeMs, refs.candidateCardCycleVarianceMs, refs.candidateCardImageHeight].forEach((element) => {
+  [refs.contestTitle, refs.votingMode, refs.sortMode, refs.pairwiseAlgorithm, refs.enableExclusion, refs.promptForName, refs.completionRuleMode, refs.completionRuleCount, refs.completionLabel, refs.outputDeliveryMethod, refs.outputContentFormat, refs.outputFileNameBase, refs.outputCsvDelimiter, refs.outputMailtoTo, refs.outputMailtoSubject, refs.outputMailtoBodyPrefix, refs.ballotTheme, refs.candidateCardVariant, refs.candidateCardCycleSeconds, refs.candidateCardSwipeMs, refs.candidateCardCycleVarianceMs, refs.candidateCardImageHeight].forEach((element) => {
     if (element) {
       element.addEventListener('input', syncPreview);
       element.addEventListener('change', syncPreview);
@@ -1567,6 +1753,7 @@ function buildBallotHtml() {
   const sortMode = refs.sortMode?.value || 'builder';
   const selectedTheme = getThemeDefinitionById(refs.ballotTheme?.value || builderDefaults.ballotTheme || 'default');
   state.candidateCardStyle = readCandidateCardStyleFromControls();
+  state.outputSettings = readOutputSettingsFromControls();
   const ballotData = JSON.stringify(buildBallotObject(
     contestTitle,
     mode,
@@ -1582,6 +1769,7 @@ function buildBallotHtml() {
       completionLabel: refs.completionLabel?.value?.trim() || builderDefaults.completionLabel || 'Copy results',
       ballotTheme: selectedTheme.id,
       candidateCardStyle: state.candidateCardStyle,
+      outputSettings: state.outputSettings,
       bannerImage: state.bannerImage || '',
       footerBrandText: state.footerBrandText || BRAND_FOOTER_TEXT,
       footerBrandLogo: state.footerBrandLogo || ''
@@ -1619,6 +1807,7 @@ function buildBallotHtml() {
 
 function collectBuilderPresetSnapshot() {
   state.candidateCardStyle = readCandidateCardStyleFromControls();
+  state.outputSettings = readOutputSettingsFromControls();
   return {
     builder: {
       contestTitle: refs.contestTitle?.value?.trim() || '',
@@ -1630,6 +1819,7 @@ function collectBuilderPresetSnapshot() {
       completionRuleMode: refs.completionRuleMode?.value || 'all-ranked',
       completionRuleCount: Number(refs.completionRuleCount?.value || 1),
       completionLabel: refs.completionLabel?.value?.trim() || 'Copy results',
+      outputSettings: state.outputSettings,
       ballotTheme: normalizeBallotTheme(refs.ballotTheme?.value || 'default'),
       candidateCardStyle: state.candidateCardStyle,
       bannerImage: state.bannerImage || '',

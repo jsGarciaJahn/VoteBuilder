@@ -9,6 +9,15 @@
     "completionRuleMode": "all-ranked",
     "completionRuleCount": 1,
     "completionLabel": "Done",
+    "outputSettings": {
+      "deliveryMethod": "clipboard",
+      "contentFormat": "plain-text",
+      "fileNameBase": "ballot_results",
+      "csvDelimiter": "comma",
+      "mailtoTo": "",
+      "mailtoSubject": "Ballot results",
+      "mailtoBodyPrefix": ""
+    },
     "ballotTheme": "default",
     "candidateCardStyle": {
       "variant": "default",

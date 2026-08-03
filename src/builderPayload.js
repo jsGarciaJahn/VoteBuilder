@@ -3,6 +3,15 @@ const FALLBACK_BUILDER_DEFAULTS = {
   completionRuleMode: 'all-ranked',
   completionRuleCount: 1,
   completionLabel: 'Copy results',
+  outputSettings: {
+    deliveryMethod: 'clipboard',
+    contentFormat: 'plain-text',
+    fileNameBase: 'ballot_results',
+    csvDelimiter: 'comma',
+    mailtoTo: '',
+    mailtoSubject: 'Ballot results',
+    mailtoBodyPrefix: ''
+  },
   ballotTheme: 'default',
   candidateCardStyle: {
     variant: 'default',
@@ -51,6 +60,27 @@ function normalizeCandidateCardStyle(rawStyle, builderDefaults) {
     swipeMs: Math.round(clampNumber(rawStyle?.swipeMs, fallbackStyle.swipeMs || 420, 180, 900)),
     cycleVarianceMs: Math.round(clampNumber(rawStyle?.cycleVarianceMs, fallbackStyle.cycleVarianceMs || 900, 0, 5000)),
     imageHeightPx: Math.round(clampNumber(rawStyle?.imageHeightPx, fallbackStyle.imageHeightPx || 150, 110, 260))
+  };
+}
+
+function normalizeOutputSettings(rawSettings, builderDefaults) {
+  const fallback = {
+    ...(FALLBACK_BUILDER_DEFAULTS.outputSettings || {}),
+    ...(builderDefaults?.outputSettings || {})
+  };
+  const normalizeKey = (value) => String(value || '').trim().toLowerCase();
+  const deliveryMethod = normalizeKey(rawSettings?.deliveryMethod || fallback.deliveryMethod || 'clipboard');
+  const contentFormat = normalizeKey(rawSettings?.contentFormat || fallback.contentFormat || 'plain-text');
+  const csvDelimiter = normalizeKey(rawSettings?.csvDelimiter || fallback.csvDelimiter || 'comma');
+
+  return {
+    deliveryMethod: ['clipboard', 'download', 'mailto'].includes(deliveryMethod) ? deliveryMethod : 'clipboard',
+    contentFormat: ['plain-text', 'json', 'csv'].includes(contentFormat) ? contentFormat : 'plain-text',
+    fileNameBase: String(rawSettings?.fileNameBase || fallback.fileNameBase || 'ballot_results').trim() || 'ballot_results',
+    csvDelimiter: ['comma', 'semicolon', 'tab'].includes(csvDelimiter) ? csvDelimiter : 'comma',
+    mailtoTo: String(rawSettings?.mailtoTo || fallback.mailtoTo || '').trim(),
+    mailtoSubject: String(rawSettings?.mailtoSubject || fallback.mailtoSubject || 'Ballot results').trim() || 'Ballot results',
+    mailtoBodyPrefix: String(rawSettings?.mailtoBodyPrefix || fallback.mailtoBodyPrefix || '')
   };
 }
 
@@ -135,6 +165,7 @@ export function buildBallotObject(contestTitle, mode, sortMode, allowExclusion, 
     count: builderDefaults.completionRuleCount || FALLBACK_BUILDER_DEFAULTS.completionRuleCount
   };
   const pairwiseAlgorithm = ballotOptions.pairwiseAlgorithm || builderDefaults.pairwiseAlgorithm || FALLBACK_BUILDER_DEFAULTS.pairwiseAlgorithm;
+  const outputSettings = normalizeOutputSettings(ballotOptions.outputSettings || {}, builderDefaults);
   const ballotTheme = normalizeBallotTheme(ballotOptions.ballotTheme || builderDefaults.ballotTheme || FALLBACK_BUILDER_DEFAULTS.ballotTheme);
   const candidateCardStyle = normalizeCandidateCardStyle(ballotOptions.candidateCardStyle || {}, builderDefaults);
   const bannerImage = String(ballotOptions.bannerImage || '').trim();
@@ -162,6 +193,7 @@ export function buildBallotObject(contestTitle, mode, sortMode, allowExclusion, 
       tierColors,
       completionRule: ballotOptions.completionRule || defaultCompletionRule,
       pairwiseAlgorithm,
+      outputSettings,
       completionLabel: ballotOptions.completionLabel || builderDefaults.completionLabel || FALLBACK_BUILDER_DEFAULTS.completionLabel,
       ballotTheme,
       candidateCardStyle,
@@ -190,6 +222,7 @@ export function buildBallotObject(contestTitle, mode, sortMode, allowExclusion, 
     tierColors,
     completionRule: ballotOptions.completionRule || defaultCompletionRule,
     pairwiseAlgorithm,
+    outputSettings,
     completionLabel: ballotOptions.completionLabel || builderDefaults.completionLabel || FALLBACK_BUILDER_DEFAULTS.completionLabel,
     ballotTheme,
     candidateCardStyle,

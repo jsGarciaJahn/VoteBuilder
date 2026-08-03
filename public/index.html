@@ -12,8 +12,21 @@
     <main class="app-shell">
       <section class="panel">
         <div class="page-header">
-          <div class="page-title-group">
-            <h1>VoteBuilder</h1>
+          <div class="header-topline">
+            <div class="page-title-group">
+              <h1>VoteBuilder</h1>
+            </div>
+            <div class="app-menu-row" aria-label="Application menu">
+              <details class="file-menu" id="fileMenu">
+                <summary>File</summary>
+                <div class="file-menu-popover" role="menu" aria-label="File menu">
+                  <button id="newWorkspaceBtn" type="button" role="menuitem">New</button>
+                  <button id="saveWorkspaceBtn" type="button" role="menuitem">Save</button>
+                  <button id="saveWorkspaceAsBtn" type="button" role="menuitem">Save As</button>
+                  <button id="loadWorkspaceBtn" type="button" role="menuitem">Load</button>
+                </div>
+              </details>
+            </div>
           </div>
           <div class="header-actions">
             <div class="tabs" role="tablist" aria-label="Builder views">
@@ -22,139 +35,194 @@
               <button type="button" class="tab" data-tab="publish" role="tab" aria-selected="false">Publish</button>
             </div>
           </div>
-        </div>
-
-        <div class="app-menu-row" aria-label="Application menu">
-          <details class="file-menu" id="fileMenu">
-            <summary>File</summary>
-            <div class="file-menu-popover" role="menu" aria-label="File menu">
-              <button id="newWorkspaceBtn" type="button" role="menuitem">New</button>
-              <button id="saveWorkspaceBtn" type="button" role="menuitem">Save</button>
-              <button id="saveWorkspaceAsBtn" type="button" role="menuitem">Save As</button>
-              <button id="loadWorkspaceBtn" type="button" role="menuitem">Load</button>
-            </div>
-          </details>
           <input id="workspaceFileInput" type="file" accept=".bcd,application/octet-stream,application/json" hidden />
         </div>
 
         <section id="configurePanel" role="tabpanel">
           <div class="config-box">
-            <div class="field-row">
-              <label for="contestTitle" class="field-label">Contest title</label>
-              <div class="field-control"><input id="contestTitle" type="text" /></div>
-            </div>
+            <details class="config-group" open>
+              <summary>Ballot identity & theme</summary>
+              <div class="config-group-body">
+                <div class="field-row">
+                  <label for="contestTitle" class="field-label">Contest title</label>
+                  <div class="field-control"><input id="contestTitle" type="text" /></div>
+                </div>
 
-            <div class="field-row" id="bannerRow">
-              <label for="bannerImageInput" class="field-label">Top banner</label>
-              <div class="field-control banner-control">
-                <input id="bannerImageInput" type="file" accept="image/*" />
-                <div id="bannerPreview" class="banner-preview" hidden></div>
-                <button id="clearBannerBtn" class="secondary small" type="button" hidden>Remove banner</button>
+                <div class="field-row">
+                  <label for="ballotTheme" class="field-label">Ballot theme</label>
+                  <div class="field-control"><select id="ballotTheme">
+                    <option value="default">Default</option>
+                  </select></div>
+                </div>
+
+                <div class="field-row" id="bannerRow">
+                  <label for="bannerImageInput" class="field-label">Top banner</label>
+                  <div class="field-control banner-control">
+                    <input id="bannerImageInput" type="file" accept="image/*" />
+                    <div id="bannerPreview" class="banner-preview" hidden></div>
+                    <button id="clearBannerBtn" class="secondary small" type="button" hidden>Remove banner</button>
+                  </div>
+                </div>
               </div>
-            </div>
+            </details>
 
-            <div class="field-row">
-              <label for="votingMode" class="field-label">Ballot mode</label>
-              <div class="field-control"><select id="votingMode">
-                <option value="ranked-choice">Ranked choice</option>
-                <option value="tier-list">Tier list</option>
-                <option value="pairwise">Pairwise</option>
-              </select></div>
-            </div>
+            <details class="config-group" open>
+              <summary>Mode & ballot rules</summary>
+              <div class="config-group-body">
+                <div class="field-row">
+                  <label for="votingMode" class="field-label">Ballot mode</label>
+                  <div class="field-control"><select id="votingMode">
+                    <option value="ranked-choice">Ranked choice</option>
+                    <option value="tier-list">Tier list</option>
+                    <option value="pairwise">Pairwise</option>
+                  </select></div>
+                </div>
 
-            <div class="field-row">
-              <label for="sortMode" class="field-label">Ordering</label>
-              <div class="field-control"><select id="sortMode">
-                <option value="builder">As configured in builder</option>
-                <option value="alpha">Alphabetical</option>
-                <option value="random">Randomize on open</option>
-              </select></div>
-            </div>
+                <div class="field-row">
+                  <label for="sortMode" class="field-label">Ordering</label>
+                  <div class="field-control"><select id="sortMode">
+                    <option value="builder">As configured in builder</option>
+                    <option value="alpha">Alphabetical</option>
+                    <option value="random">Randomize on open</option>
+                  </select></div>
+                </div>
 
-            <div class="field-row" id="pairwiseAlgorithmRow" hidden>
-              <label for="pairwiseAlgorithm" class="field-label">Pairwise algorithm</label>
-              <div class="field-control"><select id="pairwiseAlgorithm">
-                <option value="winner-stays">Winner stays</option>
-                <option value="loser-stays">Loser stays</option>
-                <option value="full-random">Full random picks</option>
-                <option value="tournament-losers-bracket">Tournament with losers bracket</option>
-              </select></div>
-            </div>
+                <div class="field-row" id="pairwiseAlgorithmRow" hidden>
+                  <label for="pairwiseAlgorithm" class="field-label">Pairwise algorithm</label>
+                  <div class="field-control"><select id="pairwiseAlgorithm">
+                    <option value="winner-stays">Winner stays</option>
+                    <option value="loser-stays">Loser stays</option>
+                    <option value="full-random">Full random picks</option>
+                    <option value="tournament-losers-bracket">Tournament</option>
+                  </select></div>
+                </div>
 
-            <div class="field-row" id="tierSettingsRow" hidden>
-              <label for="tierLabelsEditor" class="field-label">Tiers</label>
-              <div class="field-control">
-                <div id="tierLabelsEditor" class="tier-labels-editor"></div>
-                <button id="addTierBtn" class="secondary small" type="button">+ Add tier</button>
+                <div class="field-row" id="tierSettingsRow" hidden>
+                  <label for="tierLabelsEditor" class="field-label">Tiers</label>
+                  <div class="field-control">
+                    <div id="tierLabelsEditor" class="tier-labels-editor"></div>
+                    <button id="addTierBtn" class="secondary small" type="button">+ Add tier</button>
+                  </div>
+                </div>
+
+                <div class="field-row checkbox-row" id="enableExclusionRow">
+                  <label for="enableExclusion" class="field-label">Allow one exclusion</label>
+                  <div class="field-control checkbox-control"><input id="enableExclusion" type="checkbox" /></div>
+                </div>
+
+                <div class="field-row checkbox-row" id="nameSettings">
+                  <label for="promptForName" class="field-label">Prompt for voter name</label>
+                  <div class="field-control checkbox-control"><input id="promptForName" type="checkbox" /></div>
+                </div>
+
+                <div class="field-row" id="completionOptions">
+                  <label for="completionRuleMode" class="field-label">Completion rule</label>
+                  <div class="field-control"><select id="completionRuleMode">
+                    <option value="all-ranked">Require all ranked entries</option>
+                    <option value="at-least-one">Require at least one ranked entry</option>
+                    <option value="minimum-count">Require a minimum number of ranked entries</option>
+                    <option value="exact-count">Require an exact number of ranked entries</option>
+                  </select></div>
+                </div>
+
+                <div class="field-row" id="completionRuleCountRow">
+                  <label for="completionRuleCount" class="field-label">Required count</label>
+                  <div class="field-control"><input id="completionRuleCount" type="number" min="1" /></div>
+                </div>
+
+                <div class="field-row" id="completionLabelRow">
+                  <label for="completionLabel" class="field-label">Completion label</label>
+                  <div class="field-control"><input id="completionLabel" type="text" /></div>
+                </div>
               </div>
-            </div>
+            </details>
 
-            <div class="field-row checkbox-row" id="enableExclusionRow">
-              <label for="enableExclusion" class="field-label">Allow one exclusion</label>
-              <div class="field-control checkbox-control"><input id="enableExclusion" type="checkbox" /></div>
-            </div>
+            <details class="config-group" open>
+              <summary>Card display settings</summary>
+              <div class="config-group-body">
+                <div class="field-row">
+                  <label for="candidateCardVariant" class="field-label">Candidate card variant</label>
+                  <div class="field-control"><select id="candidateCardVariant">
+                    <option value="default">Default</option>
+                    <option value="compact">Compact</option>
+                    <option value="poster">Poster</option>
+                    <option value="minimal">Minimal</option>
+                  </select></div>
+                </div>
 
-            <div class="field-row checkbox-row" id="nameSettings">
-              <label for="promptForName" class="field-label">Prompt for voter name</label>
-              <div class="field-control checkbox-control"><input id="promptForName" type="checkbox" /></div>
-            </div>
+                <div class="field-row">
+                  <label for="candidateCardCycleSeconds" class="field-label">Image cycle (seconds)</label>
+                  <div class="field-control"><input id="candidateCardCycleSeconds" type="number" min="1.8" max="15" step="0.1" value="4.5" /></div>
+                </div>
 
-            <div class="field-row" id="completionOptions">
-              <label for="completionRuleMode" class="field-label">Completion rule</label>
-              <div class="field-control"><select id="completionRuleMode">
-                <option value="all-ranked">Require all ranked entries</option>
-                <option value="at-least-one">Require at least one ranked entry</option>
-                <option value="minimum-count">Require a minimum number of ranked entries</option>
-                <option value="exact-count">Require an exact number of ranked entries</option>
-              </select></div>
-            </div>
+                <div class="field-row">
+                  <label for="candidateCardSwipeMs" class="field-label">Swipe speed (ms)</label>
+                  <div class="field-control"><input id="candidateCardSwipeMs" type="number" min="180" max="900" step="10" value="420" /></div>
+                </div>
 
-            <div class="field-row" id="completionRuleCountRow">
-              <label for="completionRuleCount" class="field-label">Required count</label>
-              <div class="field-control"><input id="completionRuleCount" type="number" min="1" /></div>
-            </div>
+                <div class="field-row">
+                  <label for="candidateCardCycleVarianceMs" class="field-label">Cycle variance (ms)</label>
+                  <div class="field-control"><input id="candidateCardCycleVarianceMs" type="number" min="0" max="5000" step="50" value="900" /></div>
+                </div>
 
-            <div class="field-row" id="completionLabelRow">
-              <label for="completionLabel" class="field-label">Completion label</label>
-              <div class="field-control"><input id="completionLabel" type="text" /></div>
-            </div>
+                <div class="field-row">
+                  <label for="candidateCardImageHeight" class="field-label">Image height (px)</label>
+                  <div class="field-control"><input id="candidateCardImageHeight" type="number" min="110" max="260" step="5" value="150" /></div>
+                </div>
+              </div>
+            </details>
 
-            <div class="field-row">
-              <label for="ballotTheme" class="field-label">Ballot theme</label>
-              <div class="field-control"><select id="ballotTheme">
-                <option value="default">Default</option>
-              </select></div>
-            </div>
+            <details class="config-group" open>
+              <summary>Output delivery & content</summary>
+              <div class="config-group-body">
+                <div class="field-row">
+                  <label for="outputDeliveryMethod" class="field-label">Delivery method</label>
+                  <div class="field-control"><select id="outputDeliveryMethod">
+                    <option value="clipboard">Copy to clipboard</option>
+                    <option value="download">Download file</option>
+                    <option value="mailto">Mailto</option>
+                  </select></div>
+                </div>
 
-            <div class="field-row">
-              <label for="candidateCardVariant" class="field-label">Candidate card variant</label>
-              <div class="field-control"><select id="candidateCardVariant">
-                <option value="default">Default</option>
-                <option value="compact">Compact</option>
-                <option value="poster">Poster</option>
-                <option value="minimal">Minimal</option>
-              </select></div>
-            </div>
+                <div class="field-row">
+                  <label for="outputContentFormat" class="field-label">Content format</label>
+                  <div class="field-control"><select id="outputContentFormat">
+                    <option value="plain-text">Plain text</option>
+                    <option value="json">JSON</option>
+                    <option value="csv">CSV</option>
+                  </select></div>
+                </div>
 
-            <div class="field-row">
-              <label for="candidateCardCycleSeconds" class="field-label">Image cycle (seconds)</label>
-              <div class="field-control"><input id="candidateCardCycleSeconds" type="number" min="1.8" max="15" step="0.1" value="4.5" /></div>
-            </div>
+                <div class="field-row" id="outputDownloadFileNameRow" hidden>
+                  <label for="outputFileNameBase" class="field-label">Download filename</label>
+                  <div class="field-control"><input id="outputFileNameBase" type="text" placeholder="ballot_results" /></div>
+                </div>
 
-            <div class="field-row">
-              <label for="candidateCardSwipeMs" class="field-label">Swipe speed (ms)</label>
-              <div class="field-control"><input id="candidateCardSwipeMs" type="number" min="180" max="900" step="10" value="420" /></div>
-            </div>
+                <div class="field-row" id="outputCsvDelimiterRow" hidden>
+                  <label for="outputCsvDelimiter" class="field-label">CSV delimiter</label>
+                  <div class="field-control"><select id="outputCsvDelimiter">
+                    <option value="comma">Comma (,)</option>
+                    <option value="semicolon">Semicolon (;)</option>
+                    <option value="tab">Tab</option>
+                  </select></div>
+                </div>
 
-            <div class="field-row">
-              <label for="candidateCardCycleVarianceMs" class="field-label">Cycle variance (ms)</label>
-              <div class="field-control"><input id="candidateCardCycleVarianceMs" type="number" min="0" max="5000" step="50" value="900" /></div>
-            </div>
+                <div class="field-row" id="outputMailtoToRow" hidden>
+                  <label for="outputMailtoTo" class="field-label">Mail recipient</label>
+                  <div class="field-control"><input id="outputMailtoTo" type="text" placeholder="name@example.com" /></div>
+                </div>
 
-            <div class="field-row">
-              <label for="candidateCardImageHeight" class="field-label">Image height (px)</label>
-              <div class="field-control"><input id="candidateCardImageHeight" type="number" min="110" max="260" step="5" value="150" /></div>
-            </div>
+                <div class="field-row" id="outputMailtoSubjectRow" hidden>
+                  <label for="outputMailtoSubject" class="field-label">Mail subject</label>
+                  <div class="field-control"><input id="outputMailtoSubject" type="text" placeholder="Ballot results" /></div>
+                </div>
+
+                <div class="field-row" id="outputMailtoBodyPrefixRow" hidden>
+                  <label for="outputMailtoBodyPrefix" class="field-label">Mail body intro</label>
+                  <div class="field-control"><textarea id="outputMailtoBodyPrefix" rows="2" placeholder="Optional message before results"></textarea></div>
+                </div>
+              </div>
+            </details>
           </div>
 
           <div class="builder-workspace">

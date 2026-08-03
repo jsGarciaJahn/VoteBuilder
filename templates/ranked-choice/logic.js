@@ -9,6 +9,7 @@ const completionRule = ballotData.completionRule || {
   count: VOTE_BUILDER_DEFAULTS?.builder?.completionRuleCount || 1
 };
 const completionLabel = ballotData.completionLabel || VOTE_BUILDER_DEFAULTS?.builder?.completionLabel || 'Copy results';
+const outputSettings = normalizeOutputSettings(ballotData.outputSettings || {}, VOTE_BUILDER_DEFAULTS?.builder?.outputSettings || {});
 const ballotTheme = normalizeBallotTheme(ballotData.ballotTheme || VOTE_BUILDER_DEFAULTS?.builder?.ballotTheme || 'default');
 const candidateCardStyle = applyCandidateCardStyle(ballotData.candidateCardStyle || VOTE_BUILDER_DEFAULTS?.builder?.candidateCardStyle || {});
 const bannerImage = ballotData.bannerImage || '';
@@ -250,15 +251,16 @@ const actionButtons = wireBallotActionButtons({
     return;
   }
   if (!rankings.length) {
-    alert('Rank at least one candidate before copying.');
+    alert('Rank at least one candidate before submitting.');
     return;
   }
-  const payload = collectPayload(
-    includeVoterName ? voterName : '',
+  await deliverBallotOutput({
+    outputSettings,
+    fallbackOutputSettings: VOTE_BUILDER_DEFAULTS?.builder?.outputSettings || {},
+    voterName: includeVoterName ? voterName : '',
     contestTitle,
-    rankings.map((id) => activeCandidates.find((candidate) => candidate.id === id)?.name || '')
-  );
-  await copyPayload(payload);
+    rankings: rankings.map((id) => activeCandidates.find((candidate) => candidate.id === id)?.name || '')
+  });
   }
 });
 

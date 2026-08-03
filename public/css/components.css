@@ -9,6 +9,52 @@
   margin-bottom: 0;
 }
 
+.config-group {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.config-group:last-child {
+  margin-bottom: 0;
+}
+
+.config-group > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  font-weight: 700;
+  color: var(--builder-text);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--builder-surface-muted) 90%, #ffffff), color-mix(in srgb, var(--builder-surface-muted) 70%, #ffffff));
+  border-bottom: 1px solid var(--builder-border-soft);
+}
+
+.config-group > summary::after {
+  content: '▲';
+  font-size: 0.78rem;
+  line-height: 1;
+  color: var(--builder-muted-text);
+}
+
+.config-group[open] > summary::after {
+  content: '▼';
+}
+
+.config-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.config-group-body {
+  padding: 10px 12px 2px;
+}
+
 .page-header {
   display: flex;
   flex-direction: row;
@@ -26,17 +72,25 @@
   border-radius: 16px 16px 0 0;
 }
 
+.header-topline {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
 .app-menu-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: -6px 0 16px;
-  padding: 8px 12px;
-  border: 1px solid var(--builder-border);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--builder-surface) 88%, transparent);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+  justify-content: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .file-menu {
@@ -47,27 +101,32 @@
   list-style: none;
   cursor: pointer;
   user-select: none;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--builder-border);
-  background: var(--builder-surface-muted);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--builder-text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .file-menu > summary::-webkit-details-marker {
   display: none;
 }
 
+.file-menu > summary:hover {
+  background: color-mix(in srgb, var(--builder-accent-soft) 70%, var(--builder-surface));
+  border-color: color-mix(in srgb, var(--builder-border) 70%, transparent);
+}
+
 .file-menu[open] > summary {
-  background: var(--builder-accent);
-  color: #fff;
-  border-color: var(--builder-accent);
+  background: color-mix(in srgb, var(--builder-accent-soft) 88%, var(--builder-surface));
+  color: var(--builder-accent);
+  border-color: color-mix(in srgb, var(--builder-accent) 50%, var(--builder-border));
 }
 
 .file-menu-popover {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 4px);
   left: 0;
   z-index: 30;
   display: grid;
@@ -94,12 +153,11 @@
   background: var(--builder-accent-soft);
 }
 
-body.builder-theme-dark .app-menu-row {
-  background: color-mix(in srgb, var(--builder-surface) 84%, transparent);
-}
-
-body.builder-theme-solo .app-menu-row {
-  background: color-mix(in srgb, var(--builder-surface) 84%, transparent);
+.file-menu-popover button:focus-visible,
+.file-menu-popover button:active {
+  background: color-mix(in srgb, var(--builder-accent-soft) 86%, var(--builder-surface));
+  color: var(--builder-text);
+  outline: none;
 }
 
 .ballot-size-meter {
@@ -164,7 +222,7 @@ body .ballot-size-meter.is-danger .ballot-size-fill {
 }
 
 .page-title-group {
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .page-title-group h1 {
@@ -179,6 +237,7 @@ body .ballot-size-meter.is-danger .ballot-size-fill {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .tabs {
@@ -599,6 +658,21 @@ body textarea {
   background: var(--builder-surface);
   color: var(--builder-text);
   border-color: var(--builder-border);
+}
+
+body select {
+  color-scheme: inherit;
+}
+
+body select option,
+body select optgroup {
+  background: var(--builder-surface);
+  color: var(--builder-text);
+}
+
+body select option:checked {
+  background: color-mix(in srgb, var(--builder-accent-soft) 88%, var(--builder-surface));
+  color: var(--builder-text);
 }
 
 body .tab {

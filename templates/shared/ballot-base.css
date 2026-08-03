@@ -573,8 +573,11 @@ body.candidate-card-variant-minimal .candidate-media-btn {
 
 @keyframes candidate-title-marquee {
   0% { transform: translateX(0); }
-  25% { transform: translateX(0); }
-  100% { transform: translateX(calc(-1 * var(--candidate-title-scroll-distance, 0px))); }
+  12% { transform: translateX(0); }
+  68% { transform: translateX(calc(-1 * var(--candidate-title-scroll-distance, 0px))); }
+  80% { transform: translateX(calc(-1 * var(--candidate-title-scroll-distance, 0px))); }
+  96% { transform: translateX(0); }
+  100% { transform: translateX(0); }
 }
 
 .candidate-name {

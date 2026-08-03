@@ -159,6 +159,30 @@ describe('buildBallotObject', () => {
     expect(ballot.completionLabel).toBe('Submit');
   });
 
+  it('includes normalized output settings in the payload', () => {
+    const ballot = buildBallotObject('Contest', 'ranked-choice', 'builder', true, sampleCandidates, {
+      outputSettings: {
+        deliveryMethod: 'mailto',
+        contentFormat: 'csv',
+        fileNameBase: 'My Results',
+        csvDelimiter: 'tab',
+        mailtoTo: 'user@example.com',
+        mailtoSubject: 'Subject',
+        mailtoBodyPrefix: 'Preface'
+      }
+    });
+
+    expect(ballot.outputSettings).toEqual({
+      deliveryMethod: 'mailto',
+      contentFormat: 'csv',
+      fileNameBase: 'My Results',
+      csvDelimiter: 'tab',
+      mailtoTo: 'user@example.com',
+      mailtoSubject: 'Subject',
+      mailtoBodyPrefix: 'Preface'
+    });
+  });
+
   it('includes configured tiers in payload', () => {
     const ballot = buildBallotObject('Contest', 'tier-list', 'builder', false, sampleCandidates, {
       tiers: [

@@ -8,8 +8,11 @@ function createInitialStrategyState(activeCandidates) {
     losersNext: [],
     winnersChampion: '',
     losersChampion: '',
+    championId: ids.length === 1 ? ids[0] : '',
     finalRound: 0,
     done: ids.length < 2,
+    eliminatedIds: [],
+    finalRankingIds: ids.length < 2 ? [...ids] : [],
     pairWinners: new Map()
   };
 }
@@ -23,10 +26,51 @@ function cloneStrategyState(state) {
     losersNext: [...state.losersNext],
     winnersChampion: state.winnersChampion,
     losersChampion: state.losersChampion,
+    championId: state.championId,
     finalRound: state.finalRound,
     done: state.done,
+    eliminatedIds: [...state.eliminatedIds],
+    finalRankingIds: [...state.finalRankingIds],
     pairWinners: new Map(state.pairWinners)
   };
+}
+
+function finalizeTournamentRanking(state, championId, activeCandidates) {
+  const champion = String(championId || '').trim();
+  if (!champion) {
+    state.finalRankingIds = [];
+    return;
+  }
+
+  state.championId = champion;
+  const seen = new Set([champion]);
+  const ordered = [champion];
+
+  [...state.eliminatedIds].reverse().forEach((candidateId) => {
+    if (!candidateId || seen.has(candidateId)) return;
+    seen.add(candidateId);
+    ordered.push(candidateId);
+  });
+
+  activeCandidates.forEach((candidate) => {
+    if (!seen.has(candidate.id)) {
+      seen.add(candidate.id);
+      ordered.push(candidate.id);
+    }
+  });
+
+  state.finalRankingIds = ordered;
+}
+
+function getStrategyRankingIds(state, activeCandidates) {
+  if (!state.done) return [];
+  if (Array.isArray(state.finalRankingIds) && state.finalRankingIds.length === activeCandidates.length) {
+    return [...state.finalRankingIds];
+  }
+  if (activeCandidates.length <= 1) {
+    return activeCandidates.map((candidate) => candidate.id);
+  }
+  return [];
 }
 
 function isStrategyComplete(state) {
@@ -106,7 +150,7 @@ function computeNextPairIds(state, activeCandidates) {
   return null;
 }
 
-function applyStrategyVote(state, { winnerId, pairKey }) {
+function applyStrategyVote(state, { winnerId, pairKey, activeCandidates }) {
   state.pairWinners.set(pairKey, winnerId);
 
   if (state.phase === 'winners') {
@@ -124,17 +168,24 @@ function applyStrategyVote(state, { winnerId, pairKey }) {
     const contenderA = state.losersQueue.shift();
     const contenderB = state.losersQueue.shift();
     if (contenderA && contenderB) {
+      const loserId = winnerId === contenderA ? contenderB : contenderA;
       state.losersNext.push(winnerId);
+      state.eliminatedIds.push(loserId);
     }
     return;
   }
 
   if (state.phase === 'grand-final') {
     if (state.finalRound === 0 && winnerId === state.winnersChampion) {
+      state.eliminatedIds.push(state.losersChampion);
+      finalizeTournamentRanking(state, state.winnersChampion, activeCandidates);
       state.done = true;
     } else if (state.finalRound === 0 && winnerId === state.losersChampion) {
       state.finalRound = 1;
     } else {
+      const runnerUpId = winnerId === state.winnersChampion ? state.losersChampion : state.winnersChampion;
+      state.eliminatedIds.push(runnerUpId);
+      finalizeTournamentRanking(state, winnerId, activeCandidates);
       state.done = true;
     }
   }
