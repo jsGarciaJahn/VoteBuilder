@@ -12,14 +12,13 @@ function mountRankedChoiceBallot(ballotData) {
       <div class="panel">
         <h1>Contest</h1>
         <div id="setup">
-          <label for="voterName">Your name</label>
-          <input id="voterName" type="text" placeholder="Enter your name" />
-          <label class="toggle-row" id="excludeToggleRow" hidden>
-            <input id="excludeToggle" type="checkbox" />
-            Exclude my entry from ranking
-          </label>
-          <label for="excludeSelect" id="excludeLabel" hidden>Choose your entry</label>
-          <select id="excludeSelect" hidden></select>
+          <div id="namePrompt">
+            <label for="voterName">Your name</label>
+            <input id="voterName" type="text" placeholder="Enter your name" />
+          </div>
+          <label for="excludeSearch" id="excludeLabel" hidden>Choose your entry</label>
+          <input id="excludeSearch" type="text" list="excludeOptions" hidden />
+          <datalist id="excludeOptions"></datalist>
           <button id="startBtn">Start ranking</button>
         </div>
         <div id="ballot" hidden>
@@ -75,5 +74,55 @@ describe('ranked-choice ballot UI', () => {
     randomSpy.mockRestore();
 
     expect(firstOrder).not.toEqual(secondOrder);
+  });
+
+  it('randomizes the displayed candidate order when the ballot opens', () => {
+    const randomSpy = vi.spyOn(Math, 'random');
+    randomSpy.mockReturnValueOnce(0.9).mockReturnValueOnce(0.1);
+
+    mountRankedChoiceBallot({
+      contestTitle: 'Contest',
+      mode: 'ranked-choice',
+      sortMode: 'random',
+      allowExclusion: false,
+      candidates: [
+        { id: '1', name: 'Banana', description: '', images: [{ b64: 'data:image/jpeg;base64,AAA' }] },
+        { id: '2', name: 'Apple', description: '', images: [{ b64: 'data:image/jpeg;base64,BBB' }] },
+        { id: '3', name: 'Cherry', description: '', images: [{ b64: 'data:image/jpeg;base64,CCC' }] }
+      ]
+    });
+
+    const order = getRenderedCardOrder();
+    randomSpy.mockRestore();
+
+    expect(order).toHaveLength(3);
+    expect(order.sort()).toEqual(['Apple', 'Banana', 'Cherry'].sort());
+  });
+
+  it('excludes the selected candidate when a search entry is chosen', () => {
+    mountRankedChoiceBallot({
+      contestTitle: 'Contest',
+      mode: 'ranked-choice',
+      sortMode: 'builder',
+      allowExclusion: true,
+      promptForName: true,
+      includeVoterName: true,
+      candidates: [
+        { id: '1', name: 'Banana', description: '', images: [{ b64: 'data:image/jpeg;base64,AAA' }] },
+        { id: '2', name: 'Apple', description: '', images: [{ b64: 'data:image/jpeg;base64,BBB' }] },
+        { id: '3', name: 'Cherry', description: '', images: [{ b64: 'data:image/jpeg;base64,CCC' }] }
+      ]
+    });
+
+    const excludeSearch = document.getElementById('excludeSearch');
+    excludeSearch.value = 'Banana';
+    excludeSearch.dispatchEvent(new window.Event('input', { bubbles: true }));
+
+    const startButton = document.getElementById('startBtn');
+    startButton.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+
+    const cardNames = getRenderedCardOrder();
+    expect(cardNames).not.toContain('Banana');
+    expect(cardNames).toEqual(['Apple', 'Cherry']);
   });
 });

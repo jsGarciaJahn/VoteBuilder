@@ -1,7 +1,10 @@
 const contestTitle = ballotData.contestTitle || 'Contest';
 const candidates = ballotData.candidates || [];
 const allowExclusion = ballotData.allowExclusion === true;
-let activeCandidates = [...candidates];
+const promptForName = ballotData.promptForName !== false;
+const includeVoterName = ballotData.includeVoterName !== false;
+const sortMode = ballotData.sortMode || 'builder';
+let activeCandidates = [];
 let rankings = [];
 let voterName = '';
 
@@ -10,29 +13,50 @@ const ballot = document.getElementById('ballot');
 const cardGrid = document.getElementById('cardGrid');
 const rankingList = document.getElementById('rankingList');
 const unrankZone = document.getElementById('unrankZone');
-const excludeToggleRow = document.getElementById('excludeToggleRow');
-const excludeToggle = document.getElementById('excludeToggle');
-const excludeSelect = document.getElementById('excludeSelect');
+const namePrompt = document.getElementById('namePrompt');
+const voterNameInput = document.getElementById('voterName');
 const excludeLabel = document.getElementById('excludeLabel');
+const excludeSearch = document.getElementById('excludeSearch');
+const excludeOptions = document.getElementById('excludeOptions');
+
+function shuffleCandidates(candidateList) {
+  const shuffled = [...candidateList];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+function getDisplayCandidates(candidateList) {
+  const ordered = [...candidateList];
+
+  if (sortMode === 'alpha') {
+    ordered.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  } else if (sortMode === 'random') {
+    return shuffleCandidates(ordered);
+  }
+
+  return ordered;
+}
 
 function populateExcludeOptions() {
   if (!allowExclusion) {
-    excludeToggleRow.hidden = true;
-    excludeSelect.hidden = true;
     excludeLabel.hidden = true;
+    excludeSearch.hidden = true;
+    excludeSearch.value = '';
+    excludeOptions.innerHTML = '';
     return;
   }
 
-  excludeToggleRow.hidden = false;
-  excludeSelect.innerHTML = '';
+  excludeLabel.hidden = false;
+  excludeSearch.hidden = false;
+  excludeOptions.innerHTML = '';
   activeCandidates.forEach((candidate) => {
     const option = document.createElement('option');
     option.value = candidate.name;
-    option.textContent = candidate.name;
-    excludeSelect.appendChild(option);
+    excludeOptions.appendChild(option);
   });
-  excludeSelect.hidden = !excludeToggle.checked;
-  excludeLabel.hidden = !excludeToggle.checked;
 }
 
 function renderGrid() {
@@ -177,14 +201,15 @@ function restartRanking() {
 }
 
 function startVoting() {
-  voterName = document.getElementById('voterName').value.trim();
-  if (!voterName) {
+  voterName = voterNameInput ? voterNameInput.value.trim() : '';
+  if (promptForName && !voterName) {
     alert('Please enter your name before continuing.');
     return;
   }
-  const shouldExclude = allowExclusion && excludeToggle.checked;
-  const excludedName = shouldExclude ? excludeSelect.value : '';
-  activeCandidates = candidates.filter((candidate) => !(shouldExclude && excludedName && candidate.name === excludedName));
+
+  const excludedName = allowExclusion && excludeSearch ? excludeSearch.value.trim() : '';
+  const filteredCandidates = candidates.filter((candidate) => !(allowExclusion && excludedName && candidate.name === excludedName));
+  activeCandidates = getDisplayCandidates(filteredCandidates);
   rankings = [];
   setup.hidden = true;
   ballot.hidden = false;
@@ -201,17 +226,12 @@ document.getElementById('copyBtn').addEventListener('click', async () => {
     alert('Rank at least one candidate before copying.');
     return;
   }
-  const payload = collectPayload(voterName, contestTitle, rankings.map((id) => activeCandidates.find((candidate) => candidate.id === id)?.name || ''));
+  const payload = collectPayload(
+    includeVoterName ? voterName : '',
+    contestTitle,
+    rankings.map((id) => activeCandidates.find((candidate) => candidate.id === id)?.name || '')
+  );
   await copyPayload(payload);
-});
-excludeToggle.addEventListener('change', () => {
-  if (!allowExclusion) {
-    excludeSelect.hidden = true;
-    excludeLabel.hidden = true;
-    return;
-  }
-  excludeSelect.hidden = !excludeToggle.checked;
-  excludeLabel.hidden = !excludeToggle.checked;
 });
 
 rankingList.addEventListener('dragover', (event) => event.preventDefault());
@@ -246,5 +266,10 @@ cardGrid.addEventListener('drop', (event) => {
   }
 });
 
+if (namePrompt) {
+  namePrompt.hidden = !promptForName;
+}
+
+activeCandidates = getDisplayCandidates(candidates);
 populateExcludeOptions();
 renderGrid();

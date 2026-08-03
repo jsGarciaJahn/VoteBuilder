@@ -13,6 +13,8 @@ const refs = {
   votingMode: document.getElementById('votingMode'),
   sortMode: document.getElementById('sortMode'),
   enableExclusion: document.getElementById('enableExclusion'),
+  promptForName: document.getElementById('promptForName'),
+  includeVoterName: document.getElementById('includeVoterName'),
   dropZone: document.getElementById('dropZone'),
   fileInput: document.getElementById('fileInput'),
   imagePool: document.getElementById('imagePool'),
@@ -331,7 +333,11 @@ function generateBallot() {
     mode,
     sortMode,
     refs.enableExclusion.checked,
-    state.candidates
+    state.candidates,
+    {
+      promptForName: refs.promptForName?.checked ?? true,
+      includeVoterName: refs.includeVoterName?.checked ?? true
+    }
   ));
 
   if (!JSON.parse(ballotData).candidates.length) {
