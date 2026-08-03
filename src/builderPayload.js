@@ -1,3 +1,5 @@
+import { normalizeOutputSettings } from './outputSettings.js';
+
 const FALLBACK_BUILDER_DEFAULTS = {
   pairwiseAlgorithm: 'winner-stays',
   completionRuleMode: 'all-ranked',
@@ -28,6 +30,7 @@ const FALLBACK_BUILDER_DEFAULTS = {
     { label: 'D', color: '#f472b6' }
   ]
 };
+const CANDIDATE_CARD_VARIANTS = new Set(['default', 'compact', 'poster', 'minimal']);
 
 function normalizeBallotTheme(rawTheme) {
   const normalized = String(rawTheme || '').trim().toLowerCase();
@@ -44,43 +47,19 @@ function clampNumber(rawValue, fallbackValue, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function normalizeCandidateCardStyle(rawStyle, builderDefaults) {
-  const fallbackStyle = {
-    ...(FALLBACK_BUILDER_DEFAULTS.candidateCardStyle || {}),
-    ...(builderDefaults?.candidateCardStyle || {})
+function normalizeCandidateCardStyle(rawStyle = {}, builderDefaults = {}) {
+  const defaults = {
+    ...FALLBACK_BUILDER_DEFAULTS.candidateCardStyle,
+    ...(builderDefaults.candidateCardStyle || {})
   };
-
-  const variantRaw = String(rawStyle?.variant || fallbackStyle.variant || 'default').trim().toLowerCase();
-  const allowedVariants = new Set(['default', 'compact', 'poster', 'minimal']);
-  const variant = allowedVariants.has(variantRaw) ? variantRaw : 'default';
+  const variantKey = String(rawStyle?.variant || defaults.variant || FALLBACK_BUILDER_DEFAULTS.candidateCardStyle.variant).trim().toLowerCase();
 
   return {
-    variant,
-    autoCycleMs: Math.round(clampNumber(rawStyle?.autoCycleMs, fallbackStyle.autoCycleMs || 4500, 1800, 15000)),
-    swipeMs: Math.round(clampNumber(rawStyle?.swipeMs, fallbackStyle.swipeMs || 420, 180, 900)),
-    cycleVarianceMs: Math.round(clampNumber(rawStyle?.cycleVarianceMs, fallbackStyle.cycleVarianceMs || 900, 0, 5000)),
-    imageHeightPx: Math.round(clampNumber(rawStyle?.imageHeightPx, fallbackStyle.imageHeightPx || 150, 110, 260))
-  };
-}
-
-function normalizeOutputSettings(rawSettings, builderDefaults) {
-  const fallback = {
-    ...(FALLBACK_BUILDER_DEFAULTS.outputSettings || {}),
-    ...(builderDefaults?.outputSettings || {})
-  };
-  const normalizeKey = (value) => String(value || '').trim().toLowerCase();
-  const deliveryMethod = normalizeKey(rawSettings?.deliveryMethod || fallback.deliveryMethod || 'clipboard');
-  const contentFormat = normalizeKey(rawSettings?.contentFormat || fallback.contentFormat || 'plain-text');
-  const csvDelimiter = normalizeKey(rawSettings?.csvDelimiter || fallback.csvDelimiter || 'comma');
-
-  return {
-    deliveryMethod: ['clipboard', 'download', 'mailto'].includes(deliveryMethod) ? deliveryMethod : 'clipboard',
-    contentFormat: ['plain-text', 'json', 'csv'].includes(contentFormat) ? contentFormat : 'plain-text',
-    fileNameBase: String(rawSettings?.fileNameBase || fallback.fileNameBase || 'ballot_results').trim() || 'ballot_results',
-    csvDelimiter: ['comma', 'semicolon', 'tab'].includes(csvDelimiter) ? csvDelimiter : 'comma',
-    mailtoTo: String(rawSettings?.mailtoTo || fallback.mailtoTo || '').trim(),
-    mailtoSubject: String(rawSettings?.mailtoSubject || fallback.mailtoSubject || 'Ballot results').trim() || 'Ballot results',
-    mailtoBodyPrefix: String(rawSettings?.mailtoBodyPrefix || fallback.mailtoBodyPrefix || '')
+    variant: CANDIDATE_CARD_VARIANTS.has(variantKey) ? variantKey : FALLBACK_BUILDER_DEFAULTS.candidateCardStyle.variant,
+    autoCycleMs: Math.round(clampNumber(rawStyle?.autoCycleMs, defaults.autoCycleMs, 1800, 15000)),
+    swipeMs: Math.round(clampNumber(rawStyle?.swipeMs, defaults.swipeMs, 180, 900)),
+    cycleVarianceMs: Math.round(clampNumber(rawStyle?.cycleVarianceMs, defaults.cycleVarianceMs, 0, 5000)),
+    imageHeightPx: Math.round(clampNumber(rawStyle?.imageHeightPx, defaults.imageHeightPx, 110, 260))
   };
 }
 

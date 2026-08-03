@@ -1,5 +1,6 @@
 import { templateAssets, pairwiseStrategyImplementations } from '../../src/generatedTemplates.js';
 import { buildBallotObject } from '../../src/builderPayload.js';
+import { normalizeOutputSettings } from '../../src/outputSettings.js';
 import { initializeBuilderConfigUi } from '../../src/builderConfigUi.js';
 import { initializeViewTabs } from '../../src/viewTabs.js';
 import { updatePreviewViewport } from '../../src/previewViewport.js';
@@ -83,18 +84,6 @@ const CANDIDATE_CARD_STYLE_DEFAULTS = {
   cycleVarianceMs: 900,
   imageHeightPx: 150
 };
-const OUTPUT_SETTINGS_DEFAULTS = {
-  deliveryMethod: 'clipboard',
-  contentFormat: 'plain-text',
-  fileNameBase: 'ballot_results',
-  csvDelimiter: 'comma',
-  mailtoTo: '',
-  mailtoSubject: 'Ballot results',
-  mailtoBodyPrefix: ''
-};
-const OUTPUT_DELIVERY_METHODS = new Set(['clipboard', 'download', 'mailto']);
-const OUTPUT_CONTENT_FORMATS = new Set(['plain-text', 'json', 'csv']);
-const OUTPUT_CSV_DELIMITER_OPTIONS = new Set(['comma', 'semicolon', 'tab']);
 const CANDIDATE_CARD_VARIANTS = new Set(['default', 'compact', 'poster', 'minimal']);
 const BALLOT_SIZE_LIMIT_BYTES = 2 * 1024 * 1024;
 const WORKSPACE_STORAGE_KEY = 'voteBuilder.builderWorkspace.v1';
@@ -109,27 +98,6 @@ function normalizeNumberInRange(rawValue, fallback, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function normalizeOutputSettings(rawSettings = {}, fallbackSettings = {}) {
-  const fallback = {
-    ...OUTPUT_SETTINGS_DEFAULTS,
-    ...(fallbackSettings || {})
-  };
-
-  const deliveryKey = normalizeKey(rawSettings?.deliveryMethod || fallback.deliveryMethod || OUTPUT_SETTINGS_DEFAULTS.deliveryMethod);
-  const formatKey = normalizeKey(rawSettings?.contentFormat || fallback.contentFormat || OUTPUT_SETTINGS_DEFAULTS.contentFormat);
-  const delimiterKey = normalizeKey(rawSettings?.csvDelimiter || fallback.csvDelimiter || OUTPUT_SETTINGS_DEFAULTS.csvDelimiter);
-
-  return {
-    deliveryMethod: OUTPUT_DELIVERY_METHODS.has(deliveryKey) ? deliveryKey : OUTPUT_SETTINGS_DEFAULTS.deliveryMethod,
-    contentFormat: OUTPUT_CONTENT_FORMATS.has(formatKey) ? formatKey : OUTPUT_SETTINGS_DEFAULTS.contentFormat,
-    fileNameBase: String(rawSettings?.fileNameBase ?? fallback.fileNameBase ?? OUTPUT_SETTINGS_DEFAULTS.fileNameBase).trim() || OUTPUT_SETTINGS_DEFAULTS.fileNameBase,
-    csvDelimiter: OUTPUT_CSV_DELIMITER_OPTIONS.has(delimiterKey) ? delimiterKey : OUTPUT_SETTINGS_DEFAULTS.csvDelimiter,
-    mailtoTo: String(rawSettings?.mailtoTo ?? fallback.mailtoTo ?? OUTPUT_SETTINGS_DEFAULTS.mailtoTo).trim(),
-    mailtoSubject: String(rawSettings?.mailtoSubject ?? fallback.mailtoSubject ?? OUTPUT_SETTINGS_DEFAULTS.mailtoSubject).trim() || OUTPUT_SETTINGS_DEFAULTS.mailtoSubject,
-    mailtoBodyPrefix: String(rawSettings?.mailtoBodyPrefix ?? fallback.mailtoBodyPrefix ?? OUTPUT_SETTINGS_DEFAULTS.mailtoBodyPrefix)
-  };
-}
-
 function readOutputSettingsFromControls() {
   return normalizeOutputSettings({
     deliveryMethod: refs.outputDeliveryMethod?.value,
@@ -139,22 +107,22 @@ function readOutputSettingsFromControls() {
     mailtoTo: refs.outputMailtoTo?.value,
     mailtoSubject: refs.outputMailtoSubject?.value,
     mailtoBodyPrefix: refs.outputMailtoBodyPrefix?.value
-  }, builderDefaults.outputSettings || OUTPUT_SETTINGS_DEFAULTS);
+  }, builderDefaults.outputSettings || {});
 }
 
 function writeOutputSettingsToControls(rawSettings) {
-  const settings = normalizeOutputSettings(rawSettings, builderDefaults.outputSettings || OUTPUT_SETTINGS_DEFAULTS);
+  const settings = normalizeOutputSettings(rawSettings, builderDefaults.outputSettings || {});
   if (refs.outputDeliveryMethod) {
-    refs.outputDeliveryMethod.value = pickSelectValue(refs.outputDeliveryMethod, settings.deliveryMethod, OUTPUT_SETTINGS_DEFAULTS.deliveryMethod);
+    refs.outputDeliveryMethod.value = pickSelectValue(refs.outputDeliveryMethod, settings.deliveryMethod, 'clipboard');
   }
   if (refs.outputContentFormat) {
-    refs.outputContentFormat.value = pickSelectValue(refs.outputContentFormat, settings.contentFormat, OUTPUT_SETTINGS_DEFAULTS.contentFormat);
+    refs.outputContentFormat.value = pickSelectValue(refs.outputContentFormat, settings.contentFormat, 'plain-text');
   }
   if (refs.outputFileNameBase) {
     refs.outputFileNameBase.value = settings.fileNameBase;
   }
   if (refs.outputCsvDelimiter) {
-    refs.outputCsvDelimiter.value = pickSelectValue(refs.outputCsvDelimiter, settings.csvDelimiter, OUTPUT_SETTINGS_DEFAULTS.csvDelimiter);
+    refs.outputCsvDelimiter.value = pickSelectValue(refs.outputCsvDelimiter, settings.csvDelimiter, 'comma');
   }
   if (refs.outputMailtoTo) {
     refs.outputMailtoTo.value = settings.mailtoTo;
@@ -594,7 +562,7 @@ function applyWorkspaceSnapshot(snapshot) {
       refs.completionLabel.value = String(builder.completionLabel || 'Copy results');
     }
     if (Object.prototype.hasOwnProperty.call(builder, 'outputSettings')) {
-      state.outputSettings = normalizeOutputSettings(builder.outputSettings || {}, builderDefaults.outputSettings || OUTPUT_SETTINGS_DEFAULTS);
+      state.outputSettings = normalizeOutputSettings(builder.outputSettings || {}, builderDefaults.outputSettings || {});
       writeOutputSettingsToControls(state.outputSettings);
     }
     if (refs.ballotTheme && Object.prototype.hasOwnProperty.call(builder, 'ballotTheme')) {
@@ -735,7 +703,7 @@ const state = {
   bannerImage: '',
   footerBrandText: BRAND_FOOTER_TEXT,
   footerBrandLogo: '',
-  outputSettings: normalizeOutputSettings(builderDefaults.outputSettings || OUTPUT_SETTINGS_DEFAULTS),
+  outputSettings: normalizeOutputSettings(builderDefaults.outputSettings || {}, {}),
   workspaceFileName: '',
   workspaceFileHandle: null,
   candidateCardStyle: { ...CANDIDATE_CARD_STYLE_DEFAULTS }
@@ -975,7 +943,7 @@ function applyBuilderDefaults() {
   }
   if (refs.completionRuleCount) refs.completionRuleCount.value = String(builderDefaults.completionRuleCount || 1);
   if (refs.completionLabel) refs.completionLabel.value = builderDefaults.completionLabel || 'Copy results';
-  state.outputSettings = normalizeOutputSettings(builderDefaults.outputSettings || OUTPUT_SETTINGS_DEFAULTS);
+  state.outputSettings = normalizeOutputSettings(builderDefaults.outputSettings || {}, {});
   writeOutputSettingsToControls(state.outputSettings);
   if (refs.ballotTheme) {
     const normalizedTheme = normalizeBallotTheme(builderDefaults.ballotTheme || 'default');

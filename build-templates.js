@@ -11,6 +11,7 @@ const defaultsFile = path.join(rootDir, 'src', 'defaults.json');
 const publicDefaultsFile = path.join(rootDir, 'public', 'defaults.json');
 
 const sharedCss = fs.readFileSync(path.join(templatesDir, 'shared', 'ballot-base.css'), 'utf8');
+const sharedOutputJs = fs.readFileSync(path.join(rootDir, 'src', 'outputSettings.js'), 'utf8').replace(/^export\s+/mg, '');
 const sharedJs = fs.readFileSync(path.join(templatesDir, 'shared', 'voter-core.js'), 'utf8');
 const defaults = JSON.parse(fs.readFileSync(defaultsFile, 'utf8'));
 const defaultsLiteral = JSON.stringify(defaults);
@@ -44,7 +45,7 @@ for (const mode of modes) {
   assets[mode] = {
     html,
     css: sharedCss,
-    js: `const VOTE_BUILDER_DEFAULTS = ${defaultsLiteral};\n\n${sharedJs}\n\n${componentScripts ? `${componentScripts}\n\n` : ''}${logic}`
+    js: `const VOTE_BUILDER_DEFAULTS = ${defaultsLiteral};\n\n${sharedOutputJs}\n\n${sharedJs}\n\n${componentScripts ? `${componentScripts}\n\n` : ''}${logic}`
   };
 }
 

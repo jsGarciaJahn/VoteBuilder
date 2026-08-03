@@ -7,12 +7,6 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function collectPlainTextPayload(voterName, contestTitle, rankings) {
-  const lines = [`VOTER: ${voterName}`, `CONTEST: ${contestTitle}`, ''];
-  rankings.forEach((entry, index) => lines.push(`${index + 1}. ${entry}`));
-  return lines.join('\n');
-}
-
 async function copyPayloadToClipboard(payload) {
   try {
     if (navigator.clipboard?.writeText) {
@@ -45,116 +39,6 @@ async function copyPayloadToClipboard(payload) {
 
     alert('Copy failed.\n\n' + payload);
   }
-}
-
-function normalizeOutputSettings(rawSettings, fallbackSettings) {
-  const fallback = {
-    deliveryMethod: 'clipboard',
-    contentFormat: 'plain-text',
-    fileNameBase: 'ballot_results',
-    csvDelimiter: 'comma',
-    mailtoTo: '',
-    mailtoSubject: 'Ballot results',
-    mailtoBodyPrefix: '',
-    ...(fallbackSettings || {})
-  };
-
-  const normalizeKey = (value) => String(value || '').trim().toLowerCase();
-  const deliveryMethod = normalizeKey(rawSettings?.deliveryMethod || fallback.deliveryMethod);
-  const contentFormat = normalizeKey(rawSettings?.contentFormat || fallback.contentFormat);
-  const csvDelimiter = normalizeKey(rawSettings?.csvDelimiter || fallback.csvDelimiter);
-
-  return {
-    deliveryMethod: ['clipboard', 'download', 'mailto'].includes(deliveryMethod) ? deliveryMethod : 'clipboard',
-    contentFormat: ['plain-text', 'json', 'csv'].includes(contentFormat) ? contentFormat : 'plain-text',
-    fileNameBase: String(rawSettings?.fileNameBase || fallback.fileNameBase || 'ballot_results').trim() || 'ballot_results',
-    csvDelimiter: ['comma', 'semicolon', 'tab'].includes(csvDelimiter) ? csvDelimiter : 'comma',
-    mailtoTo: String(rawSettings?.mailtoTo || fallback.mailtoTo || '').trim(),
-    mailtoSubject: String(rawSettings?.mailtoSubject || fallback.mailtoSubject || 'Ballot results').trim() || 'Ballot results',
-    mailtoBodyPrefix: String(rawSettings?.mailtoBodyPrefix || fallback.mailtoBodyPrefix || '')
-  };
-}
-
-function toCsvDelimiter(delimiterKey) {
-  if (delimiterKey === 'semicolon') return ';';
-  if (delimiterKey === 'tab') return '\t';
-  return ',';
-}
-
-function escapeCsvCell(value) {
-  const text = String(value ?? '');
-  if (!/[",\n\r]/.test(text)) {
-    return text;
-  }
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
-function formatOutputPayload({ voterName, contestTitle, rankings, contentFormat, csvDelimiter }) {
-  const rankingList = Array.isArray(rankings) ? rankings : [];
-  if (contentFormat === 'json') {
-    return JSON.stringify({
-      voterName: String(voterName || ''),
-      contestTitle: String(contestTitle || ''),
-      rankings: rankingList.map((entry, index) => ({
-        rank: index + 1,
-        value: String(entry || '')
-      }))
-    }, null, 2);
-  }
-
-  if (contentFormat === 'csv') {
-    const delimiter = toCsvDelimiter(csvDelimiter);
-    const rows = [
-      ['rank', 'value'],
-      ...rankingList.map((entry, index) => [String(index + 1), String(entry || '')])
-    ];
-    return rows.map((row) => row.map((cell) => escapeCsvCell(cell)).join(delimiter)).join('\n');
-  }
-
-  return collectPlainTextPayload(voterName, contestTitle, rankingList);
-}
-
-function slugifyFileName(value) {
-  const slug = String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  return slug || 'ballot_results';
-}
-
-function buildOutputFileName(contestTitle, outputSettings) {
-  const baseName = outputSettings.fileNameBase || contestTitle || 'ballot_results';
-  const extension = outputSettings.contentFormat === 'json'
-    ? 'json'
-    : outputSettings.contentFormat === 'csv'
-      ? 'csv'
-      : 'txt';
-  return `${slugifyFileName(baseName)}.${extension}`;
-}
-
-function triggerDownload(payload, outputSettings, contestTitle) {
-  const contentType = outputSettings.contentFormat === 'json'
-    ? 'application/json;charset=utf-8'
-    : outputSettings.contentFormat === 'csv'
-      ? 'text/csv;charset=utf-8'
-      : 'text/plain;charset=utf-8';
-  const blob = new Blob([payload], { type: contentType });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = buildOutputFileName(contestTitle, outputSettings);
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-function triggerMailto(payload, outputSettings, contestTitle) {
-  const bodyPrefix = String(outputSettings.mailtoBodyPrefix || '').trim();
-  const body = bodyPrefix ? `${bodyPrefix}\n\n${payload}` : payload;
-  const subject = outputSettings.mailtoSubject || `Ballot results: ${contestTitle}`;
-  const recipient = outputSettings.mailtoTo || '';
-  const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  window.location.href = mailtoUrl;
 }
 
 async function deliverBallotOutput({ outputSettings, fallbackOutputSettings, voterName, contestTitle, rankings }) {
