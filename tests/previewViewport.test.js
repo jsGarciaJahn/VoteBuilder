@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { updatePreviewViewport } from './previewViewport.js';
+import { updatePreviewViewport } from '../src/previewViewport.js';
 
 describe('updatePreviewViewport', () => {
   it('switches the preview frame between desktop and mobile layouts', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildBallotObject } from './builderPayload.js';
+import { buildBallotObject } from '../src/builderPayload.js';
 
 const sampleCandidates = [
   { id: '1', name: 'Banana', description: '', images: [{ b64: 'data:image/jpeg;base64,AAA' }] },

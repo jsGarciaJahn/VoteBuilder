@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { initializeViewTabs } from './viewTabs.js';
+import { initializeViewTabs } from '../src/viewTabs.js';
 
 describe('initializeViewTabs', () => {
   beforeEach(() => {

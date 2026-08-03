@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from 'vitest';
-import { pairwiseStrategyImplementations, templateAssets } from './generatedTemplates.js';
+import { pairwiseStrategyImplementations, templateAssets } from '../src/generatedTemplates.js';
 
 const pairwiseScriptTemplate = templateAssets.pairwise.js;
 

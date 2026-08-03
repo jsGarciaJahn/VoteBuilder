@@ -74,8 +74,8 @@ const LEGACY_THEME_ALIASES = {
 };
 const BRAND_FOOTER_TEXT = 'made with AI by Juan Solo';
 const BRAND_LOGO_CANDIDATE_PATHS = [
-  './Logo Projekt Juan Solo Plays-02.png',
-  '../Logo Projekt Juan Solo Plays-02.png'
+  '../assets/Logo Projekt Juan Solo Plays-02.png',
+  './assets/Logo Projekt Juan Solo Plays-02.png'
 ];
 const CANDIDATE_CARD_STYLE_DEFAULTS = {
   variant: 'default',

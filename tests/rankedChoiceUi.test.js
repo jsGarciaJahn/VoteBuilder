@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from 'vitest';
-import { buildBallotObject } from './builderPayload.js';
-import { templateAssets } from './generatedTemplates.js';
+import { buildBallotObject } from '../src/builderPayload.js';
+import { templateAssets } from '../src/generatedTemplates.js';
 
 const rankedChoiceScript = templateAssets['ranked-choice'].js;
 

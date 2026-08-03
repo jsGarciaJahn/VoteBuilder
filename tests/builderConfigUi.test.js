@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { initializeBuilderConfigUi } from './builderConfigUi.js';
+import { initializeBuilderConfigUi } from '../src/builderConfigUi.js';
 
 describe('initializeBuilderConfigUi', () => {
   it('shows tier-list-specific settings while keeping global prompt and exclusion settings visible', () => {

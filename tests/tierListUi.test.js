@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from 'vitest';
-import { templateAssets } from './generatedTemplates.js';
+import { templateAssets } from '../src/generatedTemplates.js';
 
 const tierListScript = templateAssets['tier-list'].js;
 
