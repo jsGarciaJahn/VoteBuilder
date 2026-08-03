@@ -416,10 +416,85 @@ button:disabled {
 
 body.candidate-card-variant-compact .candidate-ballot-card {
   gap: 6px;
+  position: relative;
+}
+
+body.candidate-card-variant-compact .candidate-media {
+  position: relative;
+}
+
+body.candidate-card-variant-compact .candidate-media-overlay {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.58);
+  color: #f8fafc;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+body.candidate-card-variant-compact .candidate-title-pill {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+body.candidate-card-variant-compact .candidate-title-pill.is-scrolling .candidate-title-text {
+  display: inline-block;
+  padding-right: 24px;
+  white-space: nowrap;
+  animation: candidate-title-marquee var(--candidate-title-scroll-duration, 6s) linear infinite;
+}
+
+body.candidate-card-variant-compact .candidate-title-pill.is-scrolling:hover .candidate-title-text {
+  animation-play-state: running;
+}
+
+body.candidate-card-variant-compact .candidate-title-text {
+  display: inline-block;
+}
+
+body.candidate-card-variant-compact .candidate-compact-rank-pill {
+  margin: 0;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 0.75rem;
 }
 
 body.candidate-card-variant-compact .candidate-content {
   gap: 4px;
+}
+
+body.candidate-card-variant-compact .candidate-ballot-card[data-description]:hover::after {
+  content: attr(data-description);
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 54px;
+  z-index: 4;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #f8fafc;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.25);
+  pointer-events: none;
 }
 
 body.candidate-card-variant-compact .candidate-name {
@@ -448,15 +523,11 @@ body.candidate-card-variant-poster .candidate-media-viewport {
 }
 
 body.candidate-card-variant-minimal .candidate-ballot-card {
-  gap: 5px;
+  gap: 0;
 }
 
 body.candidate-card-variant-minimal .candidate-content {
-  gap: 3px;
-}
-
-body.candidate-card-variant-minimal .candidate-description {
-  opacity: 0.9;
+  gap: 0;
 }
 
 body.candidate-card-variant-minimal .candidate-media-controls {
@@ -498,6 +569,12 @@ body.candidate-card-variant-minimal .candidate-media-btn {
 .candidate-content {
   display: grid;
   gap: 6px;
+}
+
+@keyframes candidate-title-marquee {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(0); }
+  100% { transform: translateX(calc(-1 * var(--candidate-title-scroll-distance, 0px))); }
 }
 
 .candidate-name {

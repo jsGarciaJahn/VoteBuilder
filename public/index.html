@@ -24,6 +24,19 @@
           </div>
         </div>
 
+        <div class="app-menu-row" aria-label="Application menu">
+          <details class="file-menu" id="fileMenu">
+            <summary>File</summary>
+            <div class="file-menu-popover" role="menu" aria-label="File menu">
+              <button id="newWorkspaceBtn" type="button" role="menuitem">New</button>
+              <button id="saveWorkspaceBtn" type="button" role="menuitem">Save</button>
+              <button id="saveWorkspaceAsBtn" type="button" role="menuitem">Save As</button>
+              <button id="loadWorkspaceBtn" type="button" role="menuitem">Load</button>
+            </div>
+          </details>
+          <input id="workspaceFileInput" type="file" accept=".bcd,application/octet-stream,application/json" hidden />
+        </div>
+
         <section id="configurePanel" role="tabpanel">
           <div class="config-box">
             <div class="field-row">
@@ -116,7 +129,7 @@
             <div class="field-row">
               <label for="candidateCardVariant" class="field-label">Candidate card variant</label>
               <div class="field-control"><select id="candidateCardVariant">
-                <option value="default">Current (default)</option>
+                <option value="default">Default</option>
                 <option value="compact">Compact</option>
                 <option value="poster">Poster</option>
                 <option value="minimal">Minimal</option>
@@ -134,13 +147,14 @@
             </div>
 
             <div class="field-row">
+              <label for="candidateCardCycleVarianceMs" class="field-label">Cycle variance (ms)</label>
+              <div class="field-control"><input id="candidateCardCycleVarianceMs" type="number" min="0" max="5000" step="50" value="900" /></div>
+            </div>
+
+            <div class="field-row">
               <label for="candidateCardImageHeight" class="field-label">Image height (px)</label>
               <div class="field-control"><input id="candidateCardImageHeight" type="number" min="110" max="260" step="5" value="150" /></div>
             </div>
-          </div>
-
-          <div class="toolbar compact">
-            <button id="savePresetsBtn" class="secondary" type="button">Save presets</button>
           </div>
 
           <div class="builder-workspace">
@@ -152,6 +166,7 @@
                 </h2>
                 <div class="section-actions">
                   <button id="autoCreateBtn" class="secondary" type="button">Batch add</button>
+                  <button id="clearPoolBtn" class="secondary" type="button">Clear pool</button>
                 </div>
               </div>
               <div class="asset-workspace">
@@ -197,6 +212,17 @@
         </section>
 
         <section id="publishPanel" role="tabpanel" hidden>
+          <div class="ballot-size-meter publish-meter" aria-live="polite" aria-label="Ballot size progress">
+            <div class="ballot-size-meter-topline">
+              <strong>Ballot size</strong>
+              <span id="ballotSizeLabel">0 KB / 2 MB</span>
+            </div>
+            <div class="ballot-size-track" aria-hidden="true">
+              <div id="ballotSizeFill" class="ballot-size-fill"></div>
+            </div>
+            <small id="ballotSizeHint">Includes candidate images, descriptions, generated CSS, and ballot logic.</small>
+          </div>
+
           <div class="publish-shell">
             <h2>Publish</h2>
             <p>Download the generated ballot HTML or use the preview tab to inspect the current version.</p>

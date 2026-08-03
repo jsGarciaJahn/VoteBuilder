@@ -89,6 +89,7 @@ describe('buildBallotObject', () => {
         variant: 'poster',
         autoCycleMs: 3600,
         swipeMs: 320,
+        cycleVarianceMs: 700,
         imageHeightPx: 190
       }
     });
@@ -97,6 +98,7 @@ describe('buildBallotObject', () => {
       variant: 'poster',
       autoCycleMs: 3600,
       swipeMs: 320,
+      cycleVarianceMs: 700,
       imageHeightPx: 190
     });
   });
@@ -107,6 +109,7 @@ describe('buildBallotObject', () => {
         variant: 'unknown',
         autoCycleMs: 99,
         swipeMs: 9999,
+        cycleVarianceMs: 9999,
         imageHeightPx: 9999
       }
     });
@@ -115,6 +118,7 @@ describe('buildBallotObject', () => {
       variant: 'default',
       autoCycleMs: 1800,
       swipeMs: 900,
+      cycleVarianceMs: 5000,
       imageHeightPx: 260
     });
   });

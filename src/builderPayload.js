@@ -8,6 +8,7 @@ const FALLBACK_BUILDER_DEFAULTS = {
     variant: 'default',
     autoCycleMs: 4500,
     swipeMs: 420,
+    cycleVarianceMs: 900,
     imageHeightPx: 150
   },
   tiers: [
@@ -48,6 +49,7 @@ function normalizeCandidateCardStyle(rawStyle, builderDefaults) {
     variant,
     autoCycleMs: Math.round(clampNumber(rawStyle?.autoCycleMs, fallbackStyle.autoCycleMs || 4500, 1800, 15000)),
     swipeMs: Math.round(clampNumber(rawStyle?.swipeMs, fallbackStyle.swipeMs || 420, 180, 900)),
+    cycleVarianceMs: Math.round(clampNumber(rawStyle?.cycleVarianceMs, fallbackStyle.cycleVarianceMs || 900, 0, 5000)),
     imageHeightPx: Math.round(clampNumber(rawStyle?.imageHeightPx, fallbackStyle.imageHeightPx || 150, 110, 260))
   };
 }

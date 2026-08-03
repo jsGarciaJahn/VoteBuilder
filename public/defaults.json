@@ -14,6 +14,7 @@
       "variant": "default",
       "autoCycleMs": 4500,
       "swipeMs": 420,
+      "cycleVarianceMs": 900,
       "imageHeightPx": 150
     },
     "tiers": [

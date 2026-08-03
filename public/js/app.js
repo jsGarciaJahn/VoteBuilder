@@ -21,6 +21,7 @@ async function loadDefaults() {
         variant: 'default',
         autoCycleMs: 4500,
         swipeMs: 420,
+        cycleVarianceMs: 900,
         imageHeightPx: 150
       },
       tiers: [
@@ -70,14 +71,414 @@ const CANDIDATE_CARD_STYLE_DEFAULTS = {
   variant: 'default',
   autoCycleMs: 4500,
   swipeMs: 420,
+  cycleVarianceMs: 900,
   imageHeightPx: 150
 };
 const CANDIDATE_CARD_VARIANTS = new Set(['default', 'compact', 'poster', 'minimal']);
+const BALLOT_SIZE_LIMIT_BYTES = 2 * 1024 * 1024;
+const WORKSPACE_STORAGE_KEY = 'voteBuilder.builderWorkspace.v1';
+const WORKSPACE_FILE_EXTENSION = '.bcd';
+
+let workspaceSaveTimer = null;
+let suppressWorkspaceSave = false;
 
 function normalizeNumberInRange(rawValue, fallback, min, max) {
   const value = Number(rawValue);
   if (!Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
+}
+
+function formatBallotSize(bytes) {
+  const value = Math.max(0, Number(bytes) || 0);
+  if (value >= 1024 * 1024) {
+    return `${(value / (1024 * 1024)).toFixed(value >= 10 * 1024 * 1024 ? 1 : 2)} MB`;
+  }
+  return `${Math.max(1, Math.round(value / 1024))} KB`;
+}
+
+function updateBallotSizeMeter(ballotHtml) {
+  if (!refs.ballotSizeFill || !refs.ballotSizeLabel || !refs.ballotSizeMeter) return;
+
+  if (typeof ballotHtml !== 'string' || !ballotHtml.length) {
+    refs.ballotSizeLabel.textContent = '0 KB / 2 MB';
+    refs.ballotSizeFill.style.width = '0%';
+    refs.ballotSizeMeter.classList.remove('is-warning', 'is-danger');
+    return;
+  }
+
+  const bytes = new Blob([ballotHtml]).size;
+  const percent = Math.min(100, (bytes / BALLOT_SIZE_LIMIT_BYTES) * 100);
+  refs.ballotSizeLabel.textContent = `${formatBallotSize(bytes)} / 2 MB`;
+  refs.ballotSizeFill.style.width = `${percent}%`;
+  refs.ballotSizeMeter.classList.toggle('is-warning', bytes >= BALLOT_SIZE_LIMIT_BYTES * 0.8 && bytes < BALLOT_SIZE_LIMIT_BYTES);
+  refs.ballotSizeMeter.classList.toggle('is-danger', bytes >= BALLOT_SIZE_LIMIT_BYTES);
+}
+
+function getStoredWorkspaceSnapshot() {
+  try {
+    const stored = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
+    if (!stored) return null;
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+}
+
+function scheduleWorkspaceSave() {
+  if (suppressWorkspaceSave) return;
+  if (workspaceSaveTimer !== null) {
+    window.clearTimeout(workspaceSaveTimer);
+  }
+  workspaceSaveTimer = window.setTimeout(() => {
+    workspaceSaveTimer = null;
+    try {
+      window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(collectWorkspaceSnapshot()));
+    } catch {
+      // Ignore storage quota or privacy mode failures.
+    }
+  }, 200);
+}
+
+function clearStoredWorkspaceSnapshot() {
+  try {
+    window.localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+function closeFileMenu() {
+  if (refs.fileMenu) {
+    refs.fileMenu.open = false;
+  }
+}
+
+function handleDocumentPointerDown(event) {
+  if (!refs.fileMenu?.open) return;
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  if (refs.fileMenu.contains(target)) return;
+  closeFileMenu();
+}
+
+function slugifyFileName(value) {
+  const slug = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return slug || 'ballot_project';
+}
+
+function normalizeWorkspaceFileName(fileName, fallbackBaseName = 'ballot_project') {
+  const rawName = String(fileName || '').trim();
+  if (!rawName) {
+    return `${slugifyFileName(fallbackBaseName)}${WORKSPACE_FILE_EXTENSION}`;
+  }
+  const baseName = rawName.replace(/\.bcd$/i, '');
+  return `${slugifyFileName(baseName)}${WORKSPACE_FILE_EXTENSION}`;
+}
+
+function getSuggestedWorkspaceFileName() {
+  return state.workspaceFileName || normalizeWorkspaceFileName(refs.contestTitle?.value || builderDefaults.contestTitle || 'ballot_project');
+}
+
+function encodeWorkspaceProject(snapshot) {
+  const json = JSON.stringify(snapshot, null, 2);
+  return json;
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadWorkspaceSnapshot(snapshot, fileName) {
+  downloadBlob(new Blob([encodeWorkspaceProject(snapshot)], { type: 'application/octet-stream' }), fileName);
+}
+
+function promptForWorkspaceFileName(defaultName) {
+  const requestedName = window.prompt('Save project as', defaultName);
+  if (requestedName === null) return null;
+  return normalizeWorkspaceFileName(requestedName, defaultName);
+}
+
+function saveWorkspaceSnapshotByDownload(snapshot, preferredName) {
+  const fileName = promptForWorkspaceFileName(preferredName);
+  if (!fileName) return false;
+  downloadWorkspaceSnapshot(snapshot, fileName);
+  state.workspaceFileHandle = null;
+  state.workspaceFileName = fileName;
+  scheduleWorkspaceSave();
+  return true;
+}
+
+async function writeWorkspaceSnapshotToHandle(fileHandle, snapshot) {
+  const writable = await fileHandle.createWritable();
+  const json = encodeWorkspaceProject(snapshot);
+  await writable.truncate(0);
+  await writable.seek(0);
+  await writable.write(json);
+  await writable.close();
+}
+
+function pickWorkspaceSaveOptions() {
+  return {
+    suggestedName: getSuggestedWorkspaceFileName(),
+    types: [
+      {
+        description: 'VoteBuilder project',
+        accept: {
+          'application/octet-stream': ['.bcd']
+        }
+      }
+    ]
+  };
+}
+
+async function saveWorkspaceProjectAs() {
+  const snapshot = collectWorkspaceSnapshot();
+  const suggestedName = getSuggestedWorkspaceFileName();
+  try {
+    if (typeof window.showSaveFilePicker === 'function') {
+      const fileHandle = await window.showSaveFilePicker(pickWorkspaceSaveOptions());
+      try {
+        await writeWorkspaceSnapshotToHandle(fileHandle, snapshot);
+      } catch {
+        downloadWorkspaceSnapshot(snapshot, normalizeWorkspaceFileName(fileHandle.name, suggestedName));
+        state.workspaceFileHandle = null;
+        state.workspaceFileName = normalizeWorkspaceFileName(fileHandle.name, suggestedName);
+        scheduleWorkspaceSave();
+        return;
+      }
+      state.workspaceFileHandle = fileHandle;
+      state.workspaceFileName = normalizeWorkspaceFileName(fileHandle.name, fileHandle.name);
+      scheduleWorkspaceSave();
+      return;
+    }
+    saveWorkspaceSnapshotByDownload(snapshot, suggestedName);
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    if (saveWorkspaceSnapshotByDownload(snapshot, suggestedName)) {
+      return;
+    }
+    if (error?.name !== 'AbortError') {
+      alert('Could not save that ballot project.');
+    }
+  } finally {
+    closeFileMenu();
+  }
+}
+
+async function saveWorkspaceProject() {
+  if (!state.workspaceFileHandle) {
+    await saveWorkspaceProjectAs();
+    return;
+  }
+
+  const snapshot = collectWorkspaceSnapshot();
+  try {
+    await writeWorkspaceSnapshotToHandle(state.workspaceFileHandle, snapshot);
+    state.workspaceFileName = normalizeWorkspaceFileName(state.workspaceFileHandle.name, state.workspaceFileHandle.name);
+    scheduleWorkspaceSave();
+  } catch {
+    const fallbackName = state.workspaceFileName || normalizeWorkspaceFileName(state.workspaceFileHandle?.name || '', getSuggestedWorkspaceFileName());
+    state.workspaceFileHandle = null;
+    downloadWorkspaceSnapshot(snapshot, fallbackName);
+    state.workspaceFileName = fallbackName;
+    scheduleWorkspaceSave();
+    return;
+  }
+  closeFileMenu();
+}
+
+function parseWorkspaceProjectBuffer(buffer) {
+  const text = new TextDecoder('utf-8').decode(buffer);
+  return JSON.parse(text);
+}
+
+async function loadWorkspaceProjectFile(file) {
+  if (!file) return;
+  try {
+    const buffer = await file.arrayBuffer();
+    const snapshot = parseWorkspaceProjectBuffer(buffer);
+    const restored = applyWorkspaceSnapshot(snapshot);
+    if (restored) {
+      state.workspaceFileHandle = null;
+      state.workspaceFileName = Object.prototype.hasOwnProperty.call(snapshot, 'workspaceFileName')
+        ? normalizeWorkspaceFileName(snapshot.workspaceFileName)
+        : normalizeWorkspaceFileName(file.name || 'ballot_project', file.name || 'ballot_project');
+      try {
+        window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(collectWorkspaceSnapshot()));
+      } catch {
+        // Ignore storage errors.
+      }
+    } else {
+      alert('That file does not look like a valid ballot project.');
+    }
+  } catch {
+    alert('Could not load that ballot project.');
+  } finally {
+    if (refs.workspaceFileInput) {
+      refs.workspaceFileInput.value = '';
+    }
+    closeFileMenu();
+  }
+}
+
+function clearWorkspace() {
+  suppressWorkspaceSave = true;
+  clearStoredWorkspaceSnapshot();
+  try {
+    applyBuilderDefaults();
+    state.workspaceFileHandle = null;
+    state.workspaceFileName = '';
+    renderTierInputs(DEFAULT_TIERS);
+    state.imagePool = [];
+    state.candidates = [];
+    state.draggedImageId = null;
+    state.draggedCandidateId = null;
+    renderPool();
+    renderCandidates();
+    updateActionButtons();
+    applyPreviewViewportMode();
+    syncPreview();
+  } finally {
+    suppressWorkspaceSave = false;
+  }
+  closeFileMenu();
+}
+
+function triggerLoadWorkspaceDialog() {
+  refs.workspaceFileInput?.click();
+  closeFileMenu();
+}
+
+function normalizeStoredImage(image) {
+  if (!image || typeof image !== 'object') return null;
+  const b64 = String(image.b64 || '').trim();
+  if (!b64.startsWith('data:image/')) return null;
+  return {
+    id: String(image.id || crypto.randomUUID()),
+    name: String(image.name || '').trim(),
+    b64
+  };
+}
+
+function normalizeStoredCandidate(candidate) {
+  if (!candidate || typeof candidate !== 'object') return null;
+  const images = Array.isArray(candidate.images)
+    ? candidate.images.map((image) => normalizeStoredImage(image)).filter(Boolean)
+    : [];
+
+  return {
+    id: String(candidate.id || crypto.randomUUID()),
+    name: String(candidate.name || ''),
+    description: String(candidate.description || ''),
+    images
+  };
+}
+
+function collectWorkspaceSnapshot() {
+  const builderSnapshot = collectBuilderPresetSnapshot().builder;
+  return {
+    version: 1,
+    workspaceFileName: state.workspaceFileName || '',
+    builder: builderSnapshot,
+    footerBrandText: state.footerBrandText || BRAND_FOOTER_TEXT,
+    footerBrandLogo: state.footerBrandLogo || '',
+    imagePool: state.imagePool.map((image) => normalizeStoredImage(image)).filter(Boolean),
+    candidates: state.candidates.map((candidate) => normalizeStoredCandidate(candidate)).filter(Boolean),
+    defaultCandidateTitleSource: state.defaultCandidateTitleSource
+  };
+}
+
+function applyWorkspaceSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return false;
+  const builder = snapshot.builder || {};
+  suppressWorkspaceSave = true;
+
+  try {
+    if (refs.contestTitle && Object.prototype.hasOwnProperty.call(builder, 'contestTitle')) {
+      refs.contestTitle.value = String(builder.contestTitle || '');
+    }
+    if (refs.votingMode && Object.prototype.hasOwnProperty.call(builder, 'mode')) {
+      refs.votingMode.value = pickSelectValue(refs.votingMode, builder.mode, 'ranked-choice');
+    }
+    if (refs.sortMode && Object.prototype.hasOwnProperty.call(builder, 'sortMode')) {
+      refs.sortMode.value = pickSelectValue(refs.sortMode, builder.sortMode, 'builder');
+    }
+    if (refs.enableExclusion && Object.prototype.hasOwnProperty.call(builder, 'allowExclusion')) {
+      refs.enableExclusion.checked = builder.allowExclusion === true;
+    }
+    if (refs.promptForName && Object.prototype.hasOwnProperty.call(builder, 'promptForName')) {
+      refs.promptForName.checked = builder.promptForName !== false;
+    }
+    if (refs.pairwiseAlgorithm && Object.prototype.hasOwnProperty.call(builder, 'pairwiseAlgorithm')) {
+      refs.pairwiseAlgorithm.value = pickSelectValue(refs.pairwiseAlgorithm, builder.pairwiseAlgorithm, 'winner-stays');
+    }
+    if (refs.completionRuleMode && Object.prototype.hasOwnProperty.call(builder, 'completionRuleMode')) {
+      refs.completionRuleMode.value = pickSelectValue(refs.completionRuleMode, builder.completionRuleMode, 'all-ranked');
+    }
+    if (refs.completionRuleCount && Object.prototype.hasOwnProperty.call(builder, 'completionRuleCount')) {
+      refs.completionRuleCount.value = String(builder.completionRuleCount || 1);
+    }
+    if (refs.completionLabel && Object.prototype.hasOwnProperty.call(builder, 'completionLabel')) {
+      refs.completionLabel.value = String(builder.completionLabel || 'Copy results');
+    }
+    if (refs.ballotTheme && Object.prototype.hasOwnProperty.call(builder, 'ballotTheme')) {
+      refs.ballotTheme.value = pickSelectValue(refs.ballotTheme, normalizeBallotTheme(builder.ballotTheme || 'default'), 'default');
+    }
+    if (refs.useImageNameForCandidateTitle && Object.prototype.hasOwnProperty.call(builder, 'useImageNameForCandidateTitle')) {
+      refs.useImageNameForCandidateTitle.checked = builder.useImageNameForCandidateTitle !== false;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(builder, 'candidateCardStyle')) {
+      state.candidateCardStyle = normalizeCandidateCardStyle(builder.candidateCardStyle || {});
+      writeCandidateCardStyleToControls(state.candidateCardStyle);
+    }
+    if (Object.prototype.hasOwnProperty.call(builder, 'bannerImage')) {
+      state.bannerImage = String(builder.bannerImage || '');
+    }
+    if (Object.prototype.hasOwnProperty.call(snapshot, 'footerBrandText')) {
+      state.footerBrandText = String(snapshot.footerBrandText || BRAND_FOOTER_TEXT).trim() || BRAND_FOOTER_TEXT;
+    }
+    if (Object.prototype.hasOwnProperty.call(snapshot, 'footerBrandLogo')) {
+      state.footerBrandLogo = String(snapshot.footerBrandLogo || '').trim();
+    }
+    if (Object.prototype.hasOwnProperty.call(snapshot, 'workspaceFileName')) {
+      state.workspaceFileName = normalizeWorkspaceFileName(snapshot.workspaceFileName);
+    }
+    if (Object.prototype.hasOwnProperty.call(snapshot, 'defaultCandidateTitleSource')) {
+      state.defaultCandidateTitleSource = snapshot.defaultCandidateTitleSource === 'blank' ? 'blank' : 'image-name';
+    }
+
+    if (Array.isArray(builder.tiers)) {
+      renderTierInputs(builder.tiers);
+    }
+
+    state.imagePool = Array.isArray(snapshot.imagePool)
+      ? snapshot.imagePool.map((image) => normalizeStoredImage(image)).filter(Boolean)
+      : [];
+    state.candidates = Array.isArray(snapshot.candidates)
+      ? snapshot.candidates.map((candidate) => normalizeStoredCandidate(candidate)).filter(Boolean)
+      : [];
+
+    renderBannerPreview();
+    renderBuilderFooter();
+    renderPool();
+    renderCandidates();
+    updateActionButtons();
+    applyPreviewViewportMode();
+    syncPreview();
+    return true;
+  } finally {
+    suppressWorkspaceSave = false;
+  }
 }
 
 function normalizeCandidateCardStyle(rawStyle = {}) {
@@ -167,6 +568,8 @@ const state = {
   bannerImage: '',
   footerBrandText: BRAND_FOOTER_TEXT,
   footerBrandLogo: '',
+  workspaceFileName: '',
+  workspaceFileHandle: null,
   candidateCardStyle: { ...CANDIDATE_CARD_STYLE_DEFAULTS }
 };
 
@@ -191,7 +594,18 @@ const refs = {
   candidateCardVariant: document.getElementById('candidateCardVariant'),
   candidateCardCycleSeconds: document.getElementById('candidateCardCycleSeconds'),
   candidateCardSwipeMs: document.getElementById('candidateCardSwipeMs'),
+  candidateCardCycleVarianceMs: document.getElementById('candidateCardCycleVarianceMs'),
   candidateCardImageHeight: document.getElementById('candidateCardImageHeight'),
+  ballotSizeLabel: document.getElementById('ballotSizeLabel'),
+  ballotSizeFill: document.getElementById('ballotSizeFill'),
+  ballotSizeMeter: document.querySelector('.ballot-size-meter'),
+  ballotSizeHint: document.getElementById('ballotSizeHint'),
+  fileMenu: document.getElementById('fileMenu'),
+  newWorkspaceBtn: document.getElementById('newWorkspaceBtn'),
+  saveWorkspaceBtn: document.getElementById('saveWorkspaceBtn'),
+  saveWorkspaceAsBtn: document.getElementById('saveWorkspaceAsBtn'),
+  loadWorkspaceBtn: document.getElementById('loadWorkspaceBtn'),
+  workspaceFileInput: document.getElementById('workspaceFileInput'),
   bannerImageInput: document.getElementById('bannerImageInput'),
   bannerPreview: document.getElementById('bannerPreview'),
   clearBannerBtn: document.getElementById('clearBannerBtn'),
@@ -203,8 +617,8 @@ const refs = {
   generateBtn: document.getElementById('generateBtn'),
   publishGenerateBtn: document.getElementById('publishGenerateBtn'),
   autoCreateBtn: document.getElementById('autoCreateBtn'),
+  clearPoolBtn: document.getElementById('clearPoolBtn'),
   addCandidateBtn: document.getElementById('addCandidateBtn'),
-  savePresetsBtn: document.getElementById('savePresetsBtn'),
   useImageNameForCandidateTitle: document.getElementById('useImageNameForCandidateTitle'),
   previewFrame: document.getElementById('previewFrame'),
   refreshPreviewBtn: document.getElementById('refreshPreviewBtn'),
@@ -422,8 +836,16 @@ refs.imagePool.addEventListener('keydown', (event) => {
 refs.generateBtn?.addEventListener('click', generateBallot);
 refs.publishGenerateBtn?.addEventListener('click', generateBallot);
 refs.autoCreateBtn?.addEventListener('click', autoCreateCandidates);
+refs.clearPoolBtn?.addEventListener('click', clearImagePool);
 refs.addCandidateBtn?.addEventListener('click', () => addCandidate());
-refs.savePresetsBtn?.addEventListener('click', saveCurrentPresets);
+refs.newWorkspaceBtn?.addEventListener('click', clearWorkspace);
+refs.saveWorkspaceBtn?.addEventListener('click', saveWorkspaceProject);
+refs.saveWorkspaceAsBtn?.addEventListener('click', saveWorkspaceProjectAs);
+refs.loadWorkspaceBtn?.addEventListener('click', triggerLoadWorkspaceDialog);
+refs.workspaceFileInput?.addEventListener('change', (event) => {
+  const file = event.target.files?.[0];
+  loadWorkspaceProjectFile(file);
+});
 refs.useImageNameForCandidateTitle?.addEventListener('change', () => {
   state.defaultCandidateTitleSource = refs.useImageNameForCandidateTitle.checked ? 'image-name' : 'blank';
   syncPreview();
@@ -460,6 +882,7 @@ refs.previewMobileToggle?.addEventListener('change', () => {
   applyPreviewViewportMode();
   syncPreview();
 });
+document.addEventListener('pointerdown', handleDocumentPointerDown, true);
 
 initializeBuilderConfigUi({
   modeSelect: refs.votingMode,
@@ -757,8 +1180,10 @@ function autoCreateCandidates() {
 
 function syncPreview() {
   applyBuilderTheme();
+  const html = buildBallotHtml();
+  updateBallotSizeMeter(html);
   if (refs.previewFrame) {
-    renderPreview();
+    renderPreview(html);
   }
 }
 
@@ -771,7 +1196,7 @@ function applyPreviewViewportMode() {
 }
 
 function attachStateListeners() {
-  [refs.contestTitle, refs.votingMode, refs.sortMode, refs.pairwiseAlgorithm, refs.enableExclusion, refs.promptForName, refs.completionRuleMode, refs.completionRuleCount, refs.completionLabel, refs.ballotTheme, refs.candidateCardVariant, refs.candidateCardCycleSeconds, refs.candidateCardSwipeMs, refs.candidateCardImageHeight].forEach((element) => {
+  [refs.contestTitle, refs.votingMode, refs.sortMode, refs.pairwiseAlgorithm, refs.enableExclusion, refs.promptForName, refs.completionRuleMode, refs.completionRuleCount, refs.completionLabel, refs.ballotTheme, refs.candidateCardVariant, refs.candidateCardCycleSeconds, refs.candidateCardSwipeMs, refs.candidateCardCycleVarianceMs, refs.candidateCardImageHeight].forEach((element) => {
     if (element) {
       element.addEventListener('input', syncPreview);
       element.addEventListener('change', syncPreview);
@@ -923,6 +1348,9 @@ function updateActionButtons() {
   if (refs.autoCreateBtn) {
     refs.autoCreateBtn.disabled = state.imagePool.length === 0;
   }
+  if (refs.clearPoolBtn) {
+    refs.clearPoolBtn.disabled = state.imagePool.length === 0;
+  }
 }
 
 function renderPool() {
@@ -937,6 +1365,9 @@ function renderPool() {
     const card = document.createElement('div');
     card.className = 'pool-card';
     card.innerHTML = `
+      <div class="pool-card-header">
+        <button class="pool-remove-btn" type="button" aria-label="Remove ${image.name}" data-image-id="${image.id}">×</button>
+      </div>
       <img class="pool-thumb" src="${image.b64}" alt="${image.name}" draggable="true" />
       <p>${image.name}</p>
     `;
@@ -945,10 +1376,30 @@ function renderPool() {
       state.draggedImageId = image.id;
       state.draggedCandidateId = null;
     });
+    card.querySelector('.pool-remove-btn')?.addEventListener('click', () => removeImageFromPool(image.id));
     fragment.appendChild(card);
   });
   refs.imagePool.appendChild(fragment);
   updateActionButtons();
+}
+
+function removeImageFromPool(imageId) {
+  const index = state.imagePool.findIndex((image) => image.id === imageId);
+  if (index === -1) return;
+  state.imagePool.splice(index, 1);
+  if (state.draggedImageId === imageId) {
+    state.draggedImageId = null;
+  }
+  renderPool();
+  syncPreview();
+}
+
+function clearImagePool() {
+  if (!state.imagePool.length) return;
+  state.imagePool = [];
+  state.draggedImageId = null;
+  renderPool();
+  syncPreview();
 }
 
 function renderCandidates() {
@@ -1188,14 +1639,6 @@ function collectBuilderPresetSnapshot() {
   };
 }
 
-async function saveCurrentPresets() {
-  const payload = `${JSON.stringify(collectBuilderPresetSnapshot(), null, 2)}\n`;
-  const anchor = document.createElement('a');
-  anchor.href = `data:application/json;charset=utf-8,${encodeURIComponent(payload)}`;
-  anchor.download = 'defaults.json';
-  anchor.click();
-}
-
 function generateBallot() {
   const html = buildBallotHtml();
   if (!html) {
@@ -1213,8 +1656,8 @@ function generateBallot() {
   URL.revokeObjectURL(url);
 }
 
-function renderPreview() {
-  const html = buildBallotHtml();
+function renderPreview(existingHtml) {
+  const html = typeof existingHtml === 'string' ? existingHtml : buildBallotHtml();
   if (!html) {
     refs.previewFrame.innerHTML = '<div class="preview-empty">Add at least one candidate with a title or image to preview the ballot.</div>';
     return;
@@ -1248,9 +1691,12 @@ function escapeHtml(value) {
 }
 
 attachStateListeners();
-renderTierInputs(DEFAULT_TIERS);
-updateActionButtons();
-renderPool();
-renderCandidates();
-applyPreviewViewportMode();
-syncPreview();
+const restoredWorkspace = applyWorkspaceSnapshot(getStoredWorkspaceSnapshot());
+if (!restoredWorkspace) {
+  renderTierInputs(DEFAULT_TIERS);
+  updateActionButtons();
+  renderPool();
+  renderCandidates();
+  applyPreviewViewportMode();
+  syncPreview();
+}
