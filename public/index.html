@@ -11,90 +11,165 @@
   <body>
     <main class="app-shell">
       <section class="panel">
-        <h1>VoteBuilder</h1>
-        <p class="intro">Create a contest, upload images, and generate a standalone ballot for ranked choice, tier list, or pairwise voting.</p>
-
-        <div class="config-box">
-          <label for="contestTitle">Contest title</label>
-          <input id="contestTitle" type="text" value="Beauty Contest 2026" />
-
-          <label for="votingMode">Ballot mode</label>
-          <select id="votingMode">
-            <option value="ranked-choice">Ranked choice</option>
-            <option value="tier-list">Tier list</option>
-            <option value="pairwise">Pairwise</option>
-          </select>
-
-          <label for="sortMode">Ordering</label>
-          <select id="sortMode">
-            <option value="builder">As configured in builder</option>
-            <option value="alpha">Alphabetical</option>
-            <option value="random">Randomize on open</option>
-          </select>
-
-          <label class="checkbox-row">
-            <input id="enableExclusion" type="checkbox" />
-            Allow ballot users to exclude one candidate when they open the ballot
-          </label>
-
-          <label class="checkbox-row">
-            <input id="promptForName" type="checkbox" checked />
-            Prompt for the voter name on the ballot setup screen
-          </label>
-
-          <label class="checkbox-row">
-            <input id="includeVoterName" type="checkbox" checked />
-            Include the voter name in the copied ballot payload
-          </label>
-
-          <label for="completionRuleMode">Completion rule</label>
-          <select id="completionRuleMode">
-            <option value="all-ranked">Require all ranked entries</option>
-            <option value="at-least-one">Require at least one ranked entry</option>
-            <option value="minimum-count">Require a minimum number of ranked entries</option>
-            <option value="exact-count">Require an exact number of ranked entries</option>
-          </select>
-
-          <label for="completionRuleCount">Required ranked count</label>
-          <input id="completionRuleCount" type="number" min="1" value="1" />
-
-          <label for="completionLabel">Completion button label</label>
-          <input id="completionLabel" type="text" value="Copy results" />
-
-          <label for="ballotTheme">Ballot theme</label>
-          <select id="ballotTheme">
-            <option value="default">Default</option>
-            <option value="modern">Modern</option>
-            <option value="contrast">High contrast</option>
-          </select>
-        </div>
-
-        <div class="toolbar">
-          <button id="generateBtn" class="primary">Generate ballot</button>
-          <button id="autoCreateBtn" class="secondary">Batch add 1 candidate per image</button>
-          <button id="addCandidateBtn" class="secondary">+ Empty candidate slot</button>
-        </div>
-
-        <div class="drop-zone" id="dropZone">
-          <p>Drop photos here or click to browse</p>
-          <input id="fileInput" type="file" accept="image/*" multiple hidden />
-        </div>
-
-        <section class="pool-section">
-          <div class="section-heading">
-            <h2>Image pool</h2>
-            <span>Drag an image into a candidate card or the create zone</span>
+        <div class="page-header">
+          <div class="page-title-group">
+            <h1>VoteBuilder</h1>
           </div>
-          <div id="imagePool" class="image-pool"></div>
+          <div class="header-actions">
+            <div class="tabs" role="tablist" aria-label="Builder views">
+              <button type="button" class="tab active" data-tab="configure" role="tab" aria-selected="true">Configure</button>
+              <button type="button" class="tab" data-tab="preview" role="tab" aria-selected="false">Preview</button>
+              <button type="button" class="tab" data-tab="publish" role="tab" aria-selected="false">Publish</button>
+            </div>
+          </div>
+        </div>
+
+        <section id="configurePanel" role="tabpanel">
+          <div class="config-box">
+            <div class="field-row">
+              <label for="contestTitle" class="field-label">Contest title</label>
+              <div class="field-control"><input id="contestTitle" type="text" /></div>
+            </div>
+
+            <div class="field-row">
+              <label for="votingMode" class="field-label">Ballot mode</label>
+              <div class="field-control"><select id="votingMode">
+                <option value="ranked-choice">Ranked choice</option>
+                <option value="tier-list">Tier list</option>
+                <option value="pairwise">Pairwise</option>
+              </select></div>
+            </div>
+
+            <div class="field-row">
+              <label for="sortMode" class="field-label">Ordering</label>
+              <div class="field-control"><select id="sortMode">
+                <option value="builder">As configured in builder</option>
+                <option value="alpha">Alphabetical</option>
+                <option value="random">Randomize on open</option>
+              </select></div>
+            </div>
+
+            <div class="field-row" id="pairwiseAlgorithmRow" hidden>
+              <label for="pairwiseAlgorithm" class="field-label">Pairwise algorithm</label>
+              <div class="field-control"><select id="pairwiseAlgorithm">
+                <option value="winner-stays">Winner stays</option>
+                <option value="loser-stays">Loser stays</option>
+                <option value="full-random">Full random picks</option>
+                <option value="tournament-losers-bracket">Tournament with losers bracket</option>
+              </select></div>
+            </div>
+
+            <div class="field-row" id="tierSettingsRow" hidden>
+              <label for="tierLabelsEditor" class="field-label">Tiers</label>
+              <div class="field-control">
+                <div id="tierLabelsEditor" class="tier-labels-editor"></div>
+                <button id="addTierBtn" class="secondary small" type="button">+ Add tier</button>
+              </div>
+            </div>
+
+            <div class="field-row checkbox-row" id="enableExclusionRow">
+              <label for="enableExclusion" class="field-label">Allow one exclusion</label>
+              <div class="field-control checkbox-control"><input id="enableExclusion" type="checkbox" /></div>
+            </div>
+
+            <div class="field-row checkbox-row" id="nameSettings">
+              <label for="promptForName" class="field-label">Prompt for voter name</label>
+              <div class="field-control checkbox-control"><input id="promptForName" type="checkbox" /></div>
+            </div>
+
+            <div class="field-row" id="completionOptions">
+              <label for="completionRuleMode" class="field-label">Completion rule</label>
+              <div class="field-control"><select id="completionRuleMode">
+                <option value="all-ranked">Require all ranked entries</option>
+                <option value="at-least-one">Require at least one ranked entry</option>
+                <option value="minimum-count">Require a minimum number of ranked entries</option>
+                <option value="exact-count">Require an exact number of ranked entries</option>
+              </select></div>
+            </div>
+
+            <div class="field-row" id="completionRuleCountRow">
+              <label for="completionRuleCount" class="field-label">Required count</label>
+              <div class="field-control"><input id="completionRuleCount" type="number" min="1" /></div>
+            </div>
+
+            <div class="field-row" id="completionLabelRow">
+              <label for="completionLabel" class="field-label">Completion label</label>
+              <div class="field-control"><input id="completionLabel" type="text" /></div>
+            </div>
+
+            <div class="field-row">
+              <label for="ballotTheme" class="field-label">Ballot theme</label>
+              <div class="field-control"><select id="ballotTheme">
+                <option value="default">Default</option>
+                <option value="modern">Modern</option>
+                <option value="contrast">High contrast</option>
+              </select></div>
+            </div>
+          </div>
+
+          <div class="toolbar compact">
+            <button id="savePresetsBtn" class="secondary" type="button">Save presets</button>
+          </div>
+
+          <div class="builder-workspace">
+            <section class="asset-stage">
+              <div class="section-heading">
+                <h2>
+                  Upload & images
+                  <span class="help-icon" title="Drop photos here, then drag them into candidate cards">?</span>
+                </h2>
+                <div class="section-actions">
+                  <button id="autoCreateBtn" class="secondary" type="button">Batch add</button>
+                </div>
+              </div>
+              <div class="asset-workspace">
+                <div id="imagePool" class="image-pool drop-zone" role="button" tabindex="0" aria-label="Image pool"></div>
+                <input id="fileInput" type="file" accept="image/*" multiple hidden />
+              </div>
+            </section>
+
+            <section class="pool-section candidate-stage">
+              <div class="section-heading">
+                <h2>
+                  Candidates
+                  <span class="help-icon" title="Drop an image here to create a new candidate or add one to an existing card">?</span>
+                </h2>
+                <div class="section-actions">
+                  <label class="checkbox-pill compact-toggle">
+                    <input id="useImageNameForCandidateTitle" type="checkbox" />
+                    Use image name as title
+                  </label>
+                  <button id="addCandidateBtn" class="secondary" type="button">+ Candidate</button>
+                </div>
+              </div>
+              <div id="candidatesList" class="candidate-list"></div>
+            </section>
+          </div>
         </section>
 
-        <section class="pool-section">
-          <div class="section-heading">
-            <h2>Candidates</h2>
-            <span>Each card can hold one or more images</span>
+        <section id="previewPanel" role="tabpanel" hidden>
+          <div class="preview-shell">
+            <div id="previewFrame" class="preview-frame"></div>
+            <div class="preview-footer">
+              <div class="preview-toolbar-actions">
+                <div class="segmented">
+                  <button type="button" class="segmented-btn active" data-preview-mode="desktop">Desktop</button>
+                  <button type="button" class="segmented-btn" data-preview-mode="mobile">Mobile</button>
+                </div>
+                <button type="button" id="refreshPreviewBtn" class="secondary">Refresh preview</button>
+              </div>
+            </div>
           </div>
-          <div id="createCandidateZone" class="create-candidate-zone">+ Drag an image here to create a new candidate</div>
-          <div id="candidatesList" class="candidate-list"></div>
+        </section>
+
+        <section id="publishPanel" role="tabpanel" hidden>
+          <div class="publish-shell">
+            <h2>Publish</h2>
+            <p>Download the generated ballot HTML or use the preview tab to inspect the current version.</p>
+            <div class="toolbar">
+              <button id="publishGenerateBtn" class="primary">Generate ballot</button>
+            </div>
+          </div>
         </section>
       </section>
     </main>

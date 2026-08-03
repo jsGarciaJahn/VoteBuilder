@@ -9,28 +9,36 @@
   <body>
     <main>
       <div class="panel">
-        <h1>{{TITLE}}</h1>
-        <div id="setup">
-          <div id="namePrompt" hidden>
-            <label for="voterName">Your name</label>
-            <input id="voterName" type="text" placeholder="Enter your name" />
-          </div>
-          <label for="excludeSearch" id="excludeLabel" hidden>Choose your entry</label>
-          <input id="excludeSearch" type="text" list="excludeOptions" hidden />
-          <datalist id="excludeOptions"></datalist>
-          <button id="startBtn">Start ranking</button>
-        </div>
-        <div id="ballot" hidden>
+        <div class="ballot-topbar">
+          <h1>{{TITLE}}</h1>
           <div class="rank-actions">
-            <button id="undoBtn" class="action-btn action-btn-undo">↺ Undo</button>
-            <button id="restartBtn" class="action-btn action-btn-restart">↺ Restart</button>
-            <button id="copyBtn" class="action-btn action-btn-complete">Copy results</button>
+            <button id="undoBtn" class="action-btn action-btn-icon action-btn-undo" title="Undo" aria-label="Undo"><span aria-hidden="true">↺</span></button>
+            <button id="restartBtn" class="action-btn action-btn-icon action-btn-restart" title="Restart" aria-label="Restart"><span aria-hidden="true">⟳</span></button>
+            <button id="copyBtn" class="action-btn action-btn-icon action-btn-complete" title="Copy results" aria-label="Copy results"><span aria-hidden="true">✉</span></button>
           </div>
+        </div>
+        <div id="setup">
+          <div id="namePrompt" class="setup-row" hidden>
+            <label for="voterName">Your name</label>
+            <div class="setup-control">
+              <input id="voterName" type="text" placeholder="Enter your name" />
+            </div>
+          </div>
+          <div id="excludeField" class="exclude-field setup-row" hidden>
+            <label for="excludeSearch" id="excludeLabel">Choose your entry</label>
+            <div class="setup-control">
+              <input id="excludeSearch" type="text" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="excludeOptions" />
+              <div id="excludeOptions" class="exclude-options" role="listbox" hidden></div>
+            </div>
+          </div>
+        </div>
+        <div id="ballot">
           <h2>Rank candidates from most preferred to least preferred</h2>
           <div class="grid" id="cardGrid"></div>
-          <h3>Your ranking</h3>
-          <ol class="ranking-list" id="rankingList"></ol>
-          <div id="unrankZone" class="remove-drop-zone">Drag here to remove a ranking and make the candidate eligible again</div>
+          <div id="rankingZone" class="ranking-zone">
+            <h3>Your ranking</h3>
+            <ol class="ranking-list" id="rankingList"></ol>
+          </div>
         </div>
       </div>
     </main>

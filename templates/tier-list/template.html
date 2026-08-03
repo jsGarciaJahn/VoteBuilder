@@ -9,17 +9,32 @@
   <body>
     <main>
       <div class="panel">
-        <h1>{{TITLE}}</h1>
-        <div id="setup">
-          <label for="voterName">Your name</label>
-          <input id="voterName" type="text" placeholder="Enter your name" />
-          <button id="startBtn">Start tier voting</button>
+        <div class="ballot-topbar">
+          <h1>{{TITLE}}</h1>
+          <div class="rank-actions">
+            <button id="undoBtn" class="action-btn action-btn-icon action-btn-undo" title="Undo" aria-label="Undo"><span aria-hidden="true">↺</span></button>
+            <button id="restartBtn" class="action-btn action-btn-icon action-btn-restart" title="Restart" aria-label="Restart"><span aria-hidden="true">⟳</span></button>
+            <button id="copyBtn" class="action-btn action-btn-icon action-btn-complete" title="Submit" aria-label="Submit"><span aria-hidden="true">✉</span></button>
+          </div>
         </div>
-        <div id="ballot" hidden>
+        <div id="ballot">
+          <div id="namePrompt" class="setup-row" hidden>
+            <label for="voterName">Your name</label>
+            <div class="setup-control">
+              <input id="voterName" type="text" placeholder="Enter your name" />
+            </div>
+          </div>
+          <div id="excludeField" class="exclude-field setup-row" hidden>
+            <label for="excludeSearch" id="excludeLabel">Choose your entry</label>
+            <div class="setup-control">
+              <input id="excludeSearch" type="text" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="excludeOptions" />
+              <div id="excludeOptions" class="exclude-options" role="listbox" hidden></div>
+            </div>
+          </div>
           <h2>Assign each candidate to a tier</h2>
           <div class="tier-list" id="tierList"></div>
-          <div class="grid" id="cardGrid"></div>
-          <button id="copyBtn">Copy results</button>
+          <h3>Available candidates</h3>
+          <div class="grid tier-candidate-grid" id="cardGrid"></div>
         </div>
       </div>
     </main>

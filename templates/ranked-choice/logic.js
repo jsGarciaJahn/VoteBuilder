@@ -1,26 +1,58 @@
 const contestTitle = ballotData.contestTitle || 'Contest';
 const candidates = ballotData.candidates || [];
+const candidateOrder = ballotData.candidateOrder || [];
 const allowExclusion = ballotData.allowExclusion === true;
 const promptForName = ballotData.promptForName !== false;
 const includeVoterName = ballotData.includeVoterName !== false;
-const completionRule = ballotData.completionRule || { mode: 'all-ranked' };
-const completionLabel = ballotData.completionLabel || 'Copy results';
-const ballotTheme = ballotData.ballotTheme || 'default';
+const completionRule = ballotData.completionRule || {
+  mode: VOTE_BUILDER_DEFAULTS?.builder?.completionRuleMode || 'all-ranked',
+  count: VOTE_BUILDER_DEFAULTS?.builder?.completionRuleCount || 1
+};
+const completionLabel = ballotData.completionLabel || VOTE_BUILDER_DEFAULTS?.builder?.completionLabel || 'Copy results';
+const ballotTheme = ballotData.ballotTheme || VOTE_BUILDER_DEFAULTS?.builder?.ballotTheme || 'default';
 const sortMode = ballotData.sortMode || 'builder';
 let activeCandidates = [];
 let rankings = [];
 let voterName = '';
 
-const setup = document.getElementById('setup');
-const ballot = document.getElementById('ballot');
 const cardGrid = document.getElementById('cardGrid');
 const rankingList = document.getElementById('rankingList');
+const rankingZone = document.getElementById('rankingZone');
 const unrankZone = document.getElementById('unrankZone');
 const namePrompt = document.getElementById('namePrompt');
 const voterNameInput = document.getElementById('voterName');
-const excludeLabel = document.getElementById('excludeLabel');
+const excludeField = document.getElementById('excludeField');
 const excludeSearch = document.getElementById('excludeSearch');
 const excludeOptions = document.getElementById('excludeOptions');
+const exclusionCombobox = createExclusionCombobox({
+  field: excludeField,
+  input: excludeSearch,
+  options: excludeOptions
+});
+const rankingView = createRankingResultView({
+  rankingList,
+  getRankingIds: () => rankings,
+  getCandidateById: (candidateId) => activeCandidates.find((entry) => entry.id === candidateId),
+  onReorder: (draggedId, targetId) => {
+    const fromIndex = rankings.indexOf(draggedId);
+    const toIndex = rankings.indexOf(targetId);
+    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
+      return false;
+    }
+    rankings.splice(fromIndex, 1);
+    rankings.splice(toIndex, 0, draggedId);
+    return true;
+  },
+  onDidChange: () => {
+    renderGrid();
+    updateCompletionState();
+  },
+  clearDragTargets: [unrankZone]
+});
+
+function getExcludedCandidateName() {
+  return allowExclusion && excludeSearch ? exclusionCombobox.getValue() : '';
+}
 
 function shuffleCandidates(candidateList) {
   const shuffled = [...candidateList];
@@ -37,6 +69,11 @@ function getDisplayCandidates(candidateList) {
   if (sortMode === 'alpha') {
     ordered.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
   } else if (sortMode === 'random') {
+    if (candidateOrder.length) {
+      const orderMap = new Map(candidateOrder.map((candidateId, index) => [candidateId, index]));
+      ordered.sort((a, b) => (orderMap.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (orderMap.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+      return ordered;
+    }
     return shuffleCandidates(ordered);
   }
 
@@ -45,21 +82,25 @@ function getDisplayCandidates(candidateList) {
 
 function populateExcludeOptions() {
   if (!allowExclusion) {
-    excludeLabel.hidden = true;
-    excludeSearch.hidden = true;
-    excludeSearch.value = '';
-    excludeOptions.innerHTML = '';
+    excludeField.hidden = true;
+    exclusionCombobox.clear();
     return;
   }
 
-  excludeLabel.hidden = false;
-  excludeSearch.hidden = false;
-  excludeOptions.innerHTML = '';
-  activeCandidates.forEach((candidate) => {
-    const option = document.createElement('option');
-    option.value = candidate.name;
-    excludeOptions.appendChild(option);
-  });
+  excludeField.hidden = false;
+  exclusionCombobox.setCandidates(activeCandidates);
+  exclusionCombobox.hide();
+}
+
+function applyActiveCandidatesFromExclusion() {
+  const excludedName = getExcludedCandidateName();
+  const filteredCandidates = candidates.filter((candidate) => !(allowExclusion && excludedName && candidate.name === excludedName));
+  activeCandidates = getDisplayCandidates(filteredCandidates);
+  rankings = rankings.filter((candidateId) => activeCandidates.some((candidate) => candidate.id === candidateId));
+  populateExcludeOptions();
+  renderGrid();
+  renderRanking();
+  updateCompletionState();
 }
 
 function isCompletionSatisfied() {
@@ -77,10 +118,12 @@ function isCompletionSatisfied() {
 }
 
 function updateCompletionState() {
-  const completionButton = document.getElementById('copyBtn');
+  const completionButton = actionButtons.submitButton;
   if (!completionButton) return;
-  completionButton.disabled = !isCompletionSatisfied();
-  completionButton.textContent = completionLabel;
+  setActionButtonState(completionButton, {
+    label: completionLabel,
+    disabled: !isCompletionSatisfied()
+  });
   completionButton.classList.toggle('action-btn-complete', true);
 }
 
@@ -105,6 +148,7 @@ function renderGrid() {
     card.addEventListener('click', () => rankCandidate(candidate.id));
     card.addEventListener('dragstart', (event) => {
       event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('application/votebuilder-source', 'card');
       event.dataTransfer.setData('text/plain', candidate.id);
       card.classList.add('dragging');
     });
@@ -117,57 +161,7 @@ function renderGrid() {
 }
 
 function renderRanking() {
-  rankingList.innerHTML = '';
-  rankings.forEach((candidateId, index) => {
-    const candidate = activeCandidates.find((entry) => entry.id === candidateId);
-    if (!candidate) return;
-    const item = document.createElement('li');
-    item.className = 'ranking-item';
-    item.draggable = true;
-    item.dataset.id = candidateId;
-
-    item.addEventListener('dragstart', (event) => {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', candidateId);
-      item.classList.add('dragging');
-    });
-
-    item.addEventListener('dragend', () => {
-      item.classList.remove('dragging');
-      rankingList.querySelectorAll('.ranking-item').forEach((entry) => entry.classList.remove('drag-over'));
-      unrankZone.classList.remove('drag-over');
-    });
-
-    item.addEventListener('dragover', (event) => {
-      event.preventDefault();
-      item.classList.add('drag-over');
-    });
-
-    item.addEventListener('dragleave', () => {
-      item.classList.remove('drag-over');
-    });
-
-    item.addEventListener('drop', (event) => {
-      event.preventDefault();
-      item.classList.remove('drag-over');
-      const draggedId = event.dataTransfer.getData('text/plain');
-      if (!draggedId || draggedId === candidateId) return;
-      moveRankItemById(draggedId, candidateId);
-    });
-
-    const left = document.createElement('div');
-    left.className = 'ranking-item-left';
-    left.textContent = `${index + 1}. ${candidate.name}`;
-
-    const dragHandle = document.createElement('span');
-    dragHandle.className = 'drag-handle';
-    dragHandle.textContent = '⋮⋮';
-    dragHandle.setAttribute('aria-label', 'Drag to reorder');
-
-    item.appendChild(dragHandle);
-    item.appendChild(left);
-    rankingList.appendChild(item);
-  });
+  rankingView.render();
 }
 
 function rankCandidate(candidateId) {
@@ -205,8 +199,7 @@ function moveRankItemById(draggedId, targetId) {
   const toIndex = rankings.indexOf(targetId);
   if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
   rankings.splice(fromIndex, 1);
-  const insertAt = fromIndex < toIndex ? toIndex : toIndex;
-  rankings.splice(insertAt, 0, draggedId);
+  rankings.splice(toIndex, 0, draggedId);
   renderRanking();
   renderGrid();
   updateCompletionState();
@@ -239,25 +232,6 @@ function applyBallotTheme() {
   }
 }
 
-function startVoting() {
-  voterName = voterNameInput ? voterNameInput.value.trim() : '';
-  if (promptForName && !voterName) {
-    alert('Please enter your name before continuing.');
-    return;
-  }
-
-  const excludedName = allowExclusion && excludeSearch ? excludeSearch.value.trim() : '';
-  const filteredCandidates = candidates.filter((candidate) => !(allowExclusion && excludedName && candidate.name === excludedName));
-  activeCandidates = getDisplayCandidates(filteredCandidates);
-  rankings = [];
-  setup.hidden = true;
-  ballot.hidden = false;
-  populateExcludeOptions();
-  renderGrid();
-  renderRanking();
-  updateCompletionState();
-}
-
 function maybeScrollToRankingSummary() {
   if (!isCompletionSatisfied() || rankings.length === 0) return;
   if (window.__rankedChoiceAutoScrollTriggered) return;
@@ -268,10 +242,16 @@ function maybeScrollToRankingSummary() {
   }
 }
 
-document.getElementById('startBtn').addEventListener('click', startVoting);
-document.getElementById('undoBtn').addEventListener('click', undoRank);
-document.getElementById('restartBtn').addEventListener('click', restartRanking);
-document.getElementById('copyBtn').addEventListener('click', async () => {
+const actionButtons = wireBallotActionButtons({
+  onUndo: undoRank,
+  onRestart: restartRanking,
+  onSubmit: async () => {
+  voterName = voterNameInput ? voterNameInput.value.trim() : '';
+  if (promptForName && !voterName) {
+    alert('Please enter your name before continuing.');
+    return;
+  }
+
   if (!isCompletionSatisfied()) {
     alert('The current ranking does not satisfy the configured completion rule.');
     return;
@@ -286,6 +266,7 @@ document.getElementById('copyBtn').addEventListener('click', async () => {
     rankings.map((id) => activeCandidates.find((candidate) => candidate.id === id)?.name || '')
   );
   await copyPayload(payload);
+  }
 });
 
 rankingList.addEventListener('dragover', (event) => {
@@ -293,20 +274,34 @@ rankingList.addEventListener('dragover', (event) => {
   rankingList.classList.add('drag-over');
 });
 rankingList.addEventListener('dragleave', () => {
-  rankingList.classList.remove('drag-over');
+  rankingView.clearDragState();
 });
 rankingList.addEventListener('drop', (event) => {
   event.preventDefault();
+  event.stopPropagation();
   rankingList.classList.remove('drag-over');
   const draggedId = event.dataTransfer.getData('text/plain');
-  if (!draggedId || rankings.includes(draggedId)) return;
+  const dragSource = event.dataTransfer.getData('application/votebuilder-source');
+  const targetId = rankingList.dataset.dropTargetId || '';
+  rankingList.dataset.dropTargetId = '';
+
+  if (!draggedId) return;
+
+  if (dragSource === 'ranking-item' || rankings.includes(draggedId)) {
+    if (targetId && targetId !== draggedId) {
+      moveRankItemById(draggedId, targetId);
+    }
+    return;
+  }
+
   rankCandidate(draggedId);
 });
 
 document.addEventListener('drop', (event) => {
+  if (event.defaultPrevented) return;
   const draggedId = event.dataTransfer?.getData('text/plain');
   if (!draggedId || !rankings.includes(draggedId)) return;
-  if (event.target instanceof Element && event.target.closest('#rankingList')) return;
+  if (event.target instanceof Element && event.target.closest('#rankingZone')) return;
   removeRankItem(draggedId);
 });
 
@@ -314,21 +309,23 @@ document.addEventListener('dragover', (event) => {
   event.preventDefault();
 });
 
-unrankZone.addEventListener('dragover', (event) => {
-  event.preventDefault();
-  unrankZone.classList.add('drag-over');
-});
-unrankZone.addEventListener('dragleave', () => {
-  unrankZone.classList.remove('drag-over');
-});
-unrankZone.addEventListener('drop', (event) => {
-  event.preventDefault();
-  unrankZone.classList.remove('drag-over');
-  const draggedId = event.dataTransfer.getData('text/plain');
-  if (draggedId) {
-    removeRankItem(draggedId);
-  }
-});
+if (unrankZone) {
+  unrankZone.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    unrankZone.classList.add('drag-over');
+  });
+  unrankZone.addEventListener('dragleave', () => {
+    unrankZone.classList.remove('drag-over');
+  });
+  unrankZone.addEventListener('drop', (event) => {
+    event.preventDefault();
+    unrankZone.classList.remove('drag-over');
+    const draggedId = event.dataTransfer.getData('text/plain');
+    if (draggedId) {
+      removeRankItem(draggedId);
+    }
+  });
+}
 
 cardGrid.addEventListener('dragover', (event) => {
   event.preventDefault();
@@ -350,8 +347,9 @@ if (namePrompt) {
   namePrompt.hidden = !promptForName;
 }
 
+if (excludeSearch) {
+  excludeSearch.addEventListener('input', applyActiveCandidatesFromExclusion);
+}
+
 applyBallotTheme();
-activeCandidates = getDisplayCandidates(candidates);
-populateExcludeOptions();
-renderGrid();
-updateCompletionState();
+applyActiveCandidatesFromExclusion();

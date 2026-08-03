@@ -1,0 +1,22 @@
+{
+  "builder": {
+    "contestTitle": "Beauty Contest 2026",
+    "mode": "tier-list",
+    "sortMode": "builder",
+    "allowExclusion": false,
+    "promptForName": true,
+    "pairwiseAlgorithm": "winner-stays",
+    "completionRuleMode": "all-ranked",
+    "completionRuleCount": 1,
+    "completionLabel": "Done",
+    "ballotTheme": "default",
+    "tiers": [
+      { "label": "S", "color": "#fbbf24" },
+      { "label": "A", "color": "#f59e0b" },
+      { "label": "B", "color": "#f97316" },
+      { "label": "C", "color": "#fb7185" },
+      { "label": "D", "color": "#f472b6" }
+    ],
+    "useImageNameForCandidateTitle": true
+  }
+}
