@@ -1,6 +1,8 @@
 import { templateAssets, pairwiseStrategyImplementations } from '../../src/generatedTemplates.js';
 import { buildBallotObject } from '../../src/builderPayload.js';
 import { normalizeOutputSettings } from '../../src/outputSettings.js';
+import { CANDIDATE_CARD_STYLE_DEFAULTS, normalizeCandidateCardStyle } from '../../src/candidateCardStyle.js';
+import { loadDefaultFooterBrandLogo, processBannerImage, renderBannerPreview, renderBuilderFooter } from '../../src/builderMedia.js';
 import { initializeBuilderConfigUi } from '../../src/builderConfigUi.js';
 import { initializeViewTabs } from '../../src/viewTabs.js';
 import { updatePreviewViewport } from '../../src/previewViewport.js';
@@ -77,26 +79,12 @@ const BRAND_LOGO_CANDIDATE_PATHS = [
   '../assets/Logo Projekt Juan Solo Plays-02.png',
   './assets/Logo Projekt Juan Solo Plays-02.png'
 ];
-const CANDIDATE_CARD_STYLE_DEFAULTS = {
-  variant: 'default',
-  autoCycleMs: 4500,
-  swipeMs: 420,
-  cycleVarianceMs: 900,
-  imageHeightPx: 150
-};
-const CANDIDATE_CARD_VARIANTS = new Set(['default', 'compact', 'poster', 'minimal']);
 const BALLOT_SIZE_LIMIT_BYTES = 2 * 1024 * 1024;
 const WORKSPACE_STORAGE_KEY = 'voteBuilder.builderWorkspace.v1';
 const WORKSPACE_FILE_EXTENSION = '.bcd';
 
 let workspaceSaveTimer = null;
 let suppressWorkspaceSave = false;
-
-function normalizeNumberInRange(rawValue, fallback, min, max) {
-  const value = Number(rawValue);
-  if (!Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, value));
-}
 
 function readOutputSettingsFromControls() {
   return normalizeOutputSettings({
@@ -603,8 +591,8 @@ function applyWorkspaceSnapshot(snapshot) {
       ? snapshot.candidates.map((candidate) => normalizeStoredCandidate(candidate)).filter(Boolean)
       : [];
 
-    renderBannerPreview();
-    renderBuilderFooter();
+    renderBannerPreview({ refs, state });
+    renderBuilderFooter({ refs, state, fallbackText: BRAND_FOOTER_TEXT });
     renderPool();
     renderCandidates();
     updateActionButtons();
@@ -614,21 +602,6 @@ function applyWorkspaceSnapshot(snapshot) {
   } finally {
     suppressWorkspaceSave = false;
   }
-}
-
-function normalizeCandidateCardStyle(rawStyle = {}) {
-  const variantKey = normalizeKey(rawStyle?.variant || CANDIDATE_CARD_STYLE_DEFAULTS.variant);
-  const variant = CANDIDATE_CARD_VARIANTS.has(variantKey) ? variantKey : CANDIDATE_CARD_STYLE_DEFAULTS.variant;
-  const autoCycleMs = Math.round(normalizeNumberInRange(rawStyle?.autoCycleMs, CANDIDATE_CARD_STYLE_DEFAULTS.autoCycleMs, 1800, 15000));
-  const swipeMs = Math.round(normalizeNumberInRange(rawStyle?.swipeMs, CANDIDATE_CARD_STYLE_DEFAULTS.swipeMs, 180, 900));
-  const imageHeightPx = Math.round(normalizeNumberInRange(rawStyle?.imageHeightPx, CANDIDATE_CARD_STYLE_DEFAULTS.imageHeightPx, 110, 260));
-
-  return {
-    variant,
-    autoCycleMs,
-    swipeMs,
-    imageHeightPx
-  };
 }
 
 function readCandidateCardStyleFromControls() {
@@ -962,12 +935,12 @@ function applyBuilderDefaults() {
     state.footerBrandLogo = builderDefaults.footerBrandLogo;
   }
   state.defaultCandidateTitleSource = refs.useImageNameForCandidateTitle?.checked ? 'image-name' : 'blank';
-  renderBannerPreview();
-  renderBuilderFooter();
+  renderBannerPreview({ refs, state });
+  renderBuilderFooter({ refs, state, fallbackText: BRAND_FOOTER_TEXT });
 }
 
 state.themeDefinitions = await loadThemeCatalog();
-state.footerBrandLogo = await loadDefaultFooterBrandLogo();
+state.footerBrandLogo = await loadDefaultFooterBrandLogo(BRAND_LOGO_CANDIDATE_PATHS);
 populateThemeSelectOptions(state.themeDefinitions);
 applyBuilderDefaults();
 
@@ -1008,7 +981,7 @@ refs.bannerImageInput?.addEventListener('change', async (event) => {
     return;
   }
   state.bannerImage = await processBannerImage(file);
-  renderBannerPreview();
+  renderBannerPreview({ refs, state });
   syncPreview();
 });
 refs.clearBannerBtn?.addEventListener('click', () => {
@@ -1016,7 +989,7 @@ refs.clearBannerBtn?.addEventListener('click', () => {
   if (refs.bannerImageInput) {
     refs.bannerImageInput.value = '';
   }
-  renderBannerPreview();
+  renderBannerPreview({ refs, state });
   syncPreview();
 });
 refs.addTierBtn?.addEventListener('click', () => {
@@ -1150,152 +1123,6 @@ function processImage(file, callback) {
   reader.readAsDataURL(file);
 }
 
-function estimateDataUrlBytes(dataUrl) {
-  const payload = String(dataUrl || '').split(',')[1] || '';
-  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
-  return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
-}
-
-function processBannerImage(file) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const maxWidth = 1280;
-        const maxHeight = 220;
-        const widthScale = maxWidth / Math.max(1, img.width);
-        const heightScale = maxHeight / Math.max(1, img.height);
-        const scale = Math.min(1, widthScale, heightScale);
-        const width = Math.max(240, Math.round(img.width * scale));
-        const height = Math.max(60, Math.round(img.height * scale));
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const context = canvas.getContext('2d');
-        context.drawImage(img, 0, 0, width, height);
-
-        const qualitySteps = [0.62, 0.54, 0.46, 0.38, 0.3];
-        let chosenDataUrl = canvas.toDataURL('image/jpeg', qualitySteps[0]);
-        for (const quality of qualitySteps) {
-          const candidate = canvas.toDataURL('image/jpeg', quality);
-          chosenDataUrl = candidate;
-          if (estimateDataUrlBytes(candidate) <= 160 * 1024) {
-            break;
-          }
-        }
-        resolve(chosenDataUrl);
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-function processFooterLogoImage(sourceImage) {
-  return new Promise((resolve) => {
-    const maxWidth = 78;
-    const maxHeight = 78;
-    const widthScale = maxWidth / Math.max(1, sourceImage.width);
-    const heightScale = maxHeight / Math.max(1, sourceImage.height);
-    const scale = Math.min(1, widthScale, heightScale);
-    const width = Math.max(24, Math.round(sourceImage.width * scale));
-    const height = Math.max(24, Math.round(sourceImage.height * scale));
-
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext('2d');
-    context.drawImage(sourceImage, 0, 0, width, height);
-
-    const webpProbe = canvas.toDataURL('image/webp', 0.6);
-    const supportsWebp = webpProbe.startsWith('data:image/webp');
-
-    if (supportsWebp) {
-      const qualitySteps = [0.64, 0.54, 0.44, 0.36];
-      let chosen = webpProbe;
-      for (const quality of qualitySteps) {
-        const candidate = canvas.toDataURL('image/webp', quality);
-        chosen = candidate;
-        if (estimateDataUrlBytes(candidate) <= 18 * 1024) {
-          break;
-        }
-      }
-      resolve(chosen);
-      return;
-    }
-
-    // PNG fallback preserves transparency even when WebP encoding is unavailable.
-    resolve(canvas.toDataURL('image/png'));
-  });
-}
-
-async function loadDefaultFooterBrandLogo() {
-  for (const path of BRAND_LOGO_CANDIDATE_PATHS) {
-    try {
-      const response = await fetch(path, { cache: 'force-cache' });
-      if (!response.ok) continue;
-
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const image = new Image();
-      const dataUrl = await new Promise((resolve) => {
-        image.onload = async () => {
-          const compressed = await processFooterLogoImage(image);
-          URL.revokeObjectURL(objectUrl);
-          resolve(compressed);
-        };
-        image.onerror = () => {
-          URL.revokeObjectURL(objectUrl);
-          resolve('');
-        };
-        image.src = objectUrl;
-      });
-
-      if (typeof dataUrl === 'string' && dataUrl.startsWith('data:image/')) {
-        return dataUrl;
-      }
-    } catch {
-      // Try next path.
-    }
-  }
-
-  return '';
-}
-
-function renderBuilderFooter() {
-  if (refs.builderFooterText) {
-    refs.builderFooterText.textContent = state.footerBrandText || BRAND_FOOTER_TEXT;
-  }
-
-  if (!refs.builderFooterLogo) return;
-  if (state.footerBrandLogo && state.footerBrandLogo.startsWith('data:image/')) {
-    refs.builderFooterLogo.src = state.footerBrandLogo;
-    refs.builderFooterLogo.hidden = false;
-  } else {
-    refs.builderFooterLogo.removeAttribute('src');
-    refs.builderFooterLogo.hidden = true;
-  }
-}
-
-function renderBannerPreview() {
-  if (!refs.bannerPreview || !refs.clearBannerBtn) return;
-  if (!state.bannerImage) {
-    refs.bannerPreview.hidden = true;
-    refs.bannerPreview.innerHTML = '';
-    refs.clearBannerBtn.hidden = true;
-    return;
-  }
-
-  const sizeKb = Math.max(1, Math.round(estimateDataUrlBytes(state.bannerImage) / 1024));
-  refs.bannerPreview.hidden = false;
-  refs.bannerPreview.innerHTML = `
-    <img src="${state.bannerImage}" alt="Banner preview" />
-    <small>Compressed banner size: ${sizeKb} KB</small>
-  `;
-  refs.clearBannerBtn.hidden = false;
-}
 
 function addCandidate(initialName = '', description = '') {
   const candidate = {

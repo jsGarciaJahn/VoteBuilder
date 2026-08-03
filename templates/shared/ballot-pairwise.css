@@ -1,0 +1,47 @@
+.pairwise-matchup {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  justify-content: center;
+  align-items: stretch;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+}
+
+.pairwise-option {
+  flex: 0 0 170px;
+  cursor: pointer;
+}
+
+.pairwise-option:focus-visible {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+.pairwise-option:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.pairwise-results {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.pairwise-results h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.pairwise-results ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.pairwise-results li {
+  margin: 4px 0;
+}

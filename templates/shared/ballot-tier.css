@@ -1,0 +1,94 @@
+.tier-item {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+  min-height: 126px;
+  background: var(--surface-muted);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tier-label {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  margin: 0;
+  border: none;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  font-size: 0.95rem;
+}
+
+.tier-item.drag-over {
+  border-color: var(--focus-color);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--focus-color);
+}
+
+.tier-assigned-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 170px));
+  align-content: start;
+  justify-content: start;
+  gap: 10px;
+  min-height: 102px;
+  padding: 6px;
+  border: 1px dashed rgba(37, 99, 235, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.tier-assigned-card {
+  cursor: grab;
+}
+
+.tier-assigned-card.dragging {
+  opacity: 0.6;
+}
+
+.tier-assigned-card.drag-over-target {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.tier-assigned-card strong {
+  display: block;
+  font-size: 0.84rem;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tier-chip {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--accent-chip-bg);
+  color: var(--accent-chip-text);
+  font-size: 0.84rem;
+}
+
+.tier-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.tier-candidate-grid {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 170px));
+  justify-content: start;
+}
+
+.tier-card {
+  padding: 12px;
+}
+
+.tier-card .candidate-media img {
+  height: 150px;
+}
+
+.tier-card .candidate-name {
+  font-size: 0.96rem;
+}

@@ -1,3 +1,4 @@
+import { normalizeCandidateCardStyle } from './candidateCardStyle.js';
 import { normalizeOutputSettings } from './outputSettings.js';
 
 const FALLBACK_BUILDER_DEFAULTS = {
@@ -30,7 +31,6 @@ const FALLBACK_BUILDER_DEFAULTS = {
     { label: 'D', color: '#f472b6' }
   ]
 };
-const CANDIDATE_CARD_VARIANTS = new Set(['default', 'compact', 'poster', 'minimal']);
 
 function normalizeBallotTheme(rawTheme) {
   const normalized = String(rawTheme || '').trim().toLowerCase();
@@ -39,28 +39,6 @@ function normalizeBallotTheme(rawTheme) {
   if (normalized === 'contrast') return 'dark';
   if (normalized === 'modern') return 'default';
   return 'default';
-}
-
-function clampNumber(rawValue, fallbackValue, min, max) {
-  const value = Number(rawValue);
-  if (!Number.isFinite(value)) return fallbackValue;
-  return Math.min(max, Math.max(min, value));
-}
-
-function normalizeCandidateCardStyle(rawStyle = {}, builderDefaults = {}) {
-  const defaults = {
-    ...FALLBACK_BUILDER_DEFAULTS.candidateCardStyle,
-    ...(builderDefaults.candidateCardStyle || {})
-  };
-  const variantKey = String(rawStyle?.variant || defaults.variant || FALLBACK_BUILDER_DEFAULTS.candidateCardStyle.variant).trim().toLowerCase();
-
-  return {
-    variant: CANDIDATE_CARD_VARIANTS.has(variantKey) ? variantKey : FALLBACK_BUILDER_DEFAULTS.candidateCardStyle.variant,
-    autoCycleMs: Math.round(clampNumber(rawStyle?.autoCycleMs, defaults.autoCycleMs, 1800, 15000)),
-    swipeMs: Math.round(clampNumber(rawStyle?.swipeMs, defaults.swipeMs, 180, 900)),
-    cycleVarianceMs: Math.round(clampNumber(rawStyle?.cycleVarianceMs, defaults.cycleVarianceMs, 0, 5000)),
-    imageHeightPx: Math.round(clampNumber(rawStyle?.imageHeightPx, defaults.imageHeightPx, 110, 260))
-  };
 }
 
 function shuffleCandidates(candidateList) {

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{TITLE}}</title>
+    <style>{{CSS}}</style>
+  </head>
+  <body>
+    <main>
+      <div class="panel">
+        <div class="ballot-topbar">
+          <h1>{{TITLE}}</h1>
+          <div class="rank-actions">
+            <button id="undoBtn" class="action-btn action-btn-icon action-btn-undo" title="Undo" aria-label="Undo"><span aria-hidden="true">↺</span></button>
+            <button id="restartBtn" class="action-btn action-btn-icon action-btn-restart" title="Restart" aria-label="Restart"><span aria-hidden="true">⟳</span></button>
+            <button id="copyBtn" class="action-btn action-btn-icon action-btn-complete" title="{{ACTION_LABEL}}" aria-label="{{ACTION_LABEL}}"><span aria-hidden="true">✉</span></button>
+          </div>
+        </div>
+        {{SETUP}}
+        <div id="ballot">
+          {{CONTENT}}
+        </div>
+        <footer class="ballot-brand-footer" aria-label="Ballot attribution">
+          <img id="ballotFooterLogo" alt="Juan Solo logo" hidden />
+          <small id="ballotFooterText">made with AI by Juan Solo</small>
+        </footer>
+      </div>
+    </main>
+    <script>
+      const ballotData = {{DATA}};
+    </script>
+    <script>{{JS}}</script>
+  </body>
+</html>
